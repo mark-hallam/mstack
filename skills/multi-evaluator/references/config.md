@@ -62,6 +62,19 @@ Write each as a real person's task, end to end, with what done looks like. Never
 `"from_round": <n>`. `start-round` saves the criteria in force to `rounds/r<N>/criteria.json`, so the
 report shows which criteria each round used and older rounds stay comparable.
 
+## `control`: the noise check
+
+```json
+"control": {"task": "Judge these screens as a first-time visitor: is it clear what this is and what to do first?"}
+```
+
+Optional. When set, the first `capture` copies that round's fixed screens (PNG, visible text) to
+`<review folder>/control/` and they never change. Every round, each reviewer also scores them as journey
+`control` (the brief says so, and `verdict` refuses a reply without it). How far a reviewer's control score
+moves between rounds is that reviewer's noise; the report shows it and marks any journey change no bigger
+than it as "within noise". Switch it on: one extra journey per reviewer per round is cheap, and without it
+a one point move looks like progress.
+
 ## `reviewers`
 
 ```json

@@ -46,6 +46,9 @@ Before any review, agree with the person what a real person must be able to do, 
      stage on with `"active": true` or `"from_round": <n>` when the scores show the floor is met.
    - `reviewers`: at least two, from different AI makers. The default is Claude (run by you, the agent)
      and Codex (run by the tool with `codex exec`).
+   - `control`: the noise check (recommended). The first capture freezes that round's screens in
+     `control/`; every reviewer scores them every round as journey `control`, and the report shows how far
+     that score moved. A change smaller than that movement is noise, not progress.
 3. Show the person the journeys and criteria and get a yes before round 1.
 
 ## 2. Each round

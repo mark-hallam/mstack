@@ -34,6 +34,14 @@ a fix must respect (the config's `rules`) are listed apart and marked "not score
 last round, which is useful for catching regressions, is a separate labelled pass given to the reviewer
 after its verdict is saved, and it never changes a score. The blind pass is the score of record.
 
+## The noise check
+
+A model judge does not give the same score twice: on an unchanged product a score moves a point or two
+between runs. So every round each reviewer also scores a frozen control, the round 1 screens that never
+change, as journey "control". How far that score moves is that reviewer's noise. The report shows the
+band, and a journey change no bigger than it is marked "within noise" and does not drive the next round's
+work. A real improvement is one that clears the band.
+
 ## Why "if fixed"
 
 The gap between a journey's score and its "if fixed" score says how much the proposed fixes are worth. A

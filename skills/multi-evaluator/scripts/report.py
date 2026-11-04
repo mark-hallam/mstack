@@ -122,7 +122,7 @@ def journey_score(r, who, jid, key="score"):
     return None
 
 
-def score_cell(cur, prev, label=""):
+def score_cell(cur, prev, label="", noise=0):
     lab = " data-label='%s'" % esc(label)
     if cur is None:
         return "<td class='na'%s>not scored</td>" % lab
@@ -130,8 +130,11 @@ def score_cell(cur, prev, label=""):
         return "<td%s><b>%s</b></td>" % (lab, cur)
     d = cur - prev
     cls, sign = ("up", "+") if d > 0 else ("down", "") if d < 0 else ("same", "")
-    return "<td%s><b>%s</b> <span class='%s'>%s%s</span><span class='was'>was %s</span></td>" % (
-        lab, cur, cls, sign, round(d, 1) if d else "no change", prev)
+    within = d and abs(d) <= noise
+    if within:
+        cls = "same"
+    return "<td%s><b>%s</b> <span class='%s'>%s%s</span><span class='was'>was %s%s</span></td>" % (
+        lab, cur, cls, sign, round(d, 1) if d else "no change", prev, ", within noise" if within else "")
 
 
 def journey_table(p, rs, order, info):
@@ -140,13 +143,16 @@ def journey_table(p, rs, order, info):
     for r in rs:
         for v in r["verdicts"].values():
             for j in v.get("journeys", []):
-                names.setdefault(j.get("id"), j.get("name", ""))
+                if j.get("id") != readiness.CONTROL:
+                    names.setdefault(j.get("id"), j.get("name", ""))
+    noise = readiness.control_noise(p) or {"per_reviewer": {}}
     rows = []
     for jid in sorted(names, key=lambda k: (str(type(k)), k)):
         cells = []
         for who in order:
             name = info[who]["name"]
-            cells.append(score_cell(journey_score(cur, who, jid), journey_score(prev, who, jid), "%s now" % name))
+            cells.append(score_cell(journey_score(cur, who, jid), journey_score(prev, who, jid), "%s now" % name,
+                                    noise["per_reviewer"].get(who, 0)))
             prop = journey_score(cur, who, jid, "if_fixed")
             cells.append("<td class='prop' data-label='%s if fixed'>%s</td>" % (esc(name), prop if prop is not None else "&nbsp;"))
         fixes = [f for v in cur["verdicts"].values() for j in v.get("journeys", []) if j.get("id") == jid
@@ -238,6 +244,28 @@ def proposals(cur, order, info):
                        info[who]["colour"], esc(info[who]["name"]), esc(v.get("overall")), top,
                        "<p class='small sub'>Broken or wrong</p><ul>%s</ul>" % broken if broken else ""))
     return "<div class='two'>%s</div>" % "".join(out)
+
+
+def noise_card(p, rs, order, info):
+    noise = readiness.control_noise(p)
+    if noise is None:
+        return ""
+    rows = []
+    for who in order:
+        scores = [journey_score(r, who, readiness.CONTROL) for r in rs]
+        if not any(s is not None for s in scores):
+            continue
+        rows.append("<tr><th scope='row'><i class='dot' style='background:%s'></i>%s</th>%s<td data-label='Moved'><b>%s</b></td></tr>" % (
+            info[who]["colour"], esc(info[who]["name"]),
+            "".join("<td data-label='Round %d'>%s</td>" % (r["n"], s if s is not None else "not scored") for r, s in zip(rs, scores)),
+            noise["per_reviewer"].get(who, 0)))
+    head = "".join("<th scope='col'>Round %d</th>" % r["n"] for r in rs)
+    return ("<h2>The noise check</h2><div class='card'><p class='small sub'>Every round each reviewer also scores a frozen "
+            "control (the round 1 screens, unchanged). How far that score moves is the reviewer's noise. A change in a real "
+            "journey no bigger than that is marked \"within noise\" above and is not evidence of improvement. Band this "
+            "review: up to <b>%s</b> point%s.</p><table><thead><tr><th scope='col'>Reviewer</th>%s<th scope='col'>Moved</th></tr>"
+            "</thead><tbody>%s</tbody></table></div>" % (
+                noise["band"], "" if noise["band"] == 1 else "s", head, "".join(rows) or "<tr><td>Not scored yet.</td></tr>"))
 
 
 def criteria_table(rs):
@@ -345,14 +373,14 @@ def build(p):
             "<h2>Score trend</h2><div class='card'>%s</div>"
             "<h2>Each journey, this round against the last</h2><div class='card'>%s</div>"
             "<h2>What changed going into round %d</h2><div class='card'>%s</div>%s"
-            "<h2>What the reviewers propose next</h2>%s%s"
+            "%s<h2>What the reviewers propose next</h2>%s%s"
             "<h2>The criteria each round used</h2><div class='card'><p class='small sub'>The floor, plus each stage "
             "added as the product matured (highlighted).</p>%s</div>%s"
             "<h2>Before and after, screen by screen</h2>%s"
             "<p class='small sub'>Made with mStack's multi-evaluator skill.</p></div></body></html>") % (
         esc(title), CSS, esc(p.name), (". " + esc(note)) if note else "", esc(names), kpis, banner,
         trend_svg(rs, order, info), journey_table(p, rs, order, info), cur["n"], md_list(cur["changes"]),
-        comparisons_html(p, cur["n"], order, info), proposals(cur, order, info), fixes_detail(cur, order, info), criteria_table(rs), people, before_after(p, rs))
+        comparisons_html(p, cur["n"], order, info), noise_card(p, rs, order, info), proposals(cur, order, info), fixes_detail(cur, order, info), criteria_table(rs), people, before_after(p, rs))
     path = os.path.join(p.dir, "report.html")
     with open(path, "w", encoding="utf-8") as fh:
         fh.write(page)

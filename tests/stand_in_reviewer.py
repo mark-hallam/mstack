@@ -52,9 +52,12 @@ def main():
     clicked = "clicked button" in log
     score, if_fixed = SCORES.get(args.round, (9, 10))
     score = max(0, min(10, score + args.offset))
-    journeys = [{"id": j, "name": "Journey %d" % j, "score": score, "if_fixed": if_fixed,
+    if "id `control`" in brief:                      # the frozen control: a score that wobbles by one, like a real judge
+        jids.append("control")
+    journeys = [{"id": j, "name": "Journey %s" % j, "score": (6 + args.round % 2) if j == "control" else score,
+                 "if_fixed": (6 + args.round % 2) if j == "control" else if_fixed,
                  "what_worked": ["The add button was found and pressed." if clicked else "The page opened."],
-                 "fixes": [] if score >= 9 else [{"severity": "high" if score < 6 else "medium", "where": "Home",
+                 "fixes": [] if (score >= 9 or j == "control") else [{"severity": "high" if score < 6 else "medium", "where": "Home",
                                                   "problem": "Stand-in problem for round %d." % args.round,
                                                   "fix": "Stand-in fix for round %d." % args.round}]} for j in jids]
     print("Here is my verdict.\n```json\n%s\n```" % json.dumps({

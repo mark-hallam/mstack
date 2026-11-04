@@ -396,8 +396,33 @@ def cmd_capture(args):
                 print("%-24s %s" % (v["id"], "ok" if ok else "captured, but a step did not find its target"), flush=True)
         finally:
             shutil.rmtree(work, ignore_errors=True)
+    frozen = freeze_control(p, n)
     if args.json:
-        print(json.dumps({"round": n, "shots": out, "views": results}, indent=2))
+        print(json.dumps({"round": n, "shots": out, "views": results, "control": frozen}, indent=2))
+    elif frozen:
+        print("control frozen from this round's screens: %s" % frozen, flush=True)
+
+
+def freeze_control(p, n):
+    """The noise check: the first captured round's screens are copied to <dir>/control/ and never change.
+    Every round, each reviewer scores them as journey "control"; how far that score moves is noise."""
+    if not p.cfg.get("control"):
+        return None
+    cdir = os.path.join(p.dir, readiness.CONTROL)
+    if os.path.isdir(cdir):
+        return None
+    sdir = p.rdir(n, "shots")
+    if not os.path.isdir(sdir) or not p.shots(n):
+        return None
+    os.makedirs(cdir)
+    for f in os.listdir(sdir):
+        if f.endswith((".png", ".txt", ".jpg")):
+            shutil.copyfile(os.path.join(sdir, f), os.path.join(cdir, f))
+    with open(os.path.join(cdir, "README.md"), "w", encoding="utf-8") as fh:
+        fh.write("# Control (frozen from round %d)\n\nThese screens never change. Every round each reviewer scores them "
+                 "as journey \"control\". How far that score moves between rounds is the reviewer's noise: a change in "
+                 "a real journey smaller than that is not evidence of improvement.\n" % n)
+    return cdir
 
 
 def cmd_brief(args):

@@ -30,6 +30,7 @@ STATIC = os.path.join(ROOT, "tests", "static_server.py")
 SAMPLE = os.path.join(ROOT, "examples", "sample-app")
 sys.path.insert(0, SCRIPTS)
 import eval_loop  # noqa: E402
+import readiness  # noqa: E402
 
 failures = []
 
@@ -65,6 +66,7 @@ def config(site):
              "steps": [{"do": "goto", "url": "{url}", "ms": 600}]}],
         "journeys": [{"id": 1, "name": "Add a book", "task": "Add a book to the list."},
                      {"id": 2, "name": "Mark one as read", "task": "Mark a book as read and see the count change."}],
+        "control": {"task": "Judge these screens as a first-time visitor."},
         "criteria": [{"name": "Clear", "means": "obvious what to do next."},
                      {"name": "Calm", "means": "nothing shouting."}],
         "stages": [{"name": "Stage 1", "from_round": 3, "criteria": [{"name": "Copy", "means": "plain English."}]}],
@@ -86,7 +88,8 @@ def agent_verdict(n):
     score = {1: 5, 2: 8, 3: 10}[n]
     return json.dumps({"reviewer": "second", "round": n, "overall": score, "top_fixes": [], "broken": [],
                        "journeys": [{"id": j, "name": "J%d" % j, "score": score, "if_fixed": 10, "what_worked": [],
-                                     "fixes": []} for j in (1, 2)]})
+                                     "fixes": []} for j in (1, 2)] + [
+                           {"id": "control", "name": "Control", "score": 8, "if_fixed": 8, "what_worked": [], "fixes": []}]})
 
 
 def main():
@@ -113,10 +116,14 @@ def main():
             out = run(review, "capture", "--json")
             views = json.loads(out)["views"]
             check(len(views) == 3 and all(v["ok"] for v in views), "round %d: three fixed screens captured" % n)
+            control = os.path.join(review, "control")
+            check(os.path.exists(os.path.join(control, "home-desktop.png")) and os.path.exists(os.path.join(control, "README.md"))
+                  and (json.loads(out)["control"] is not None) == (n == 1), "round %d: the control is frozen once, from round 1" % n)
             run(review, "brief")
             brief = open(os.path.join(review, "rounds", "r%d" % n, "briefs", "stand-in.md")).read()
             check("serve --dir" in brief and "drive.mjs" in brief and "Reply format" in brief,
                   "round %d: the brief has set up, driver and reply format" % n)
+            check("id `control`" in brief, "round %d: the brief asks for the control" % n)
             check(("Copy" in brief) == (n >= 3), "round %d: the criteria grow from round 3" % n)
             check("r%d/shots" % (n - 1) not in brief and "not shown earlier rounds" in brief,
                   "round %d: the scoring brief is blind to earlier rounds" % n)
@@ -154,6 +161,13 @@ def main():
         check(len(re.findall(r"src='data:image/jpeg;base64,", page)) >= 6 + 9, "the report embeds before, after and filmstrip images")
         check("Every round" in page, "the report has the filmstrip")
         check("compared it with last round" in page and "Plain words on the buttons." in page, "the report shows the comparison pass")
+        check("The noise check" in page and "within noise" in page, "the report shows the noise band and marks changes within it")
+        noise = readiness.control_noise(eval_loop.Project(review))
+        check(noise["per_reviewer"] == {"second": 0, "stand-in": 1} and noise["band"] == 1, "the control's movement is measured per reviewer")
+        no_control = json.dumps({"reviewer": "second", "round": 3, "overall": 9, "journeys": [
+            {"id": 1, "score": 9, "if_fixed": 9}, {"id": 2, "score": 9, "if_fixed": 9}]})
+        probs = json.loads(run(review, "validate", "-", "--json", expect=1, stdin=no_control))["problems"]
+        check(any("not scored: control" in x for x in probs), "validate refuses a verdict without the control")
         check("if fixed" in page and "Add a book" in page, "the report has each journey with its if fixed score")
         check("The criteria each round used" in page and "chip new" in page, "the report shows the criteria grew")
         check("src='http" not in page and "<link" not in page, "the report is self-contained")
