@@ -187,6 +187,14 @@ class Target(object):
         self.url = fill(t.get("url", "http://127.0.0.1:{port}/"), self.values)
         self.values["url"] = self.url
         self.proc = None
+        self.log = os.path.join(self.tmp, "product.log")
+
+    def tail(self):
+        try:
+            with open(self.log, encoding="utf-8", errors="replace") as fh:
+                return "\nIts last output:\n" + "".join(fh.readlines()[-15:])
+        except OSError:
+            return ""
 
     def _run(self, cmd, wait):
         env = dict(os.environ)
@@ -201,6 +209,8 @@ class Target(object):
             if r.returncode != 0:
                 raise SystemExit("A setup command failed: %s\n%s" % (cmd, (r.stderr or b"").decode(errors="replace")))
             return None
+        kw["stdout"] = open(self.log, "w")
+        kw["stderr"] = subprocess.STDOUT
         return subprocess.Popen(fill(cmd, self.values), **kw)
 
     def start(self):
@@ -212,18 +222,22 @@ class Target(object):
         if self.t.get("start"):
             self.proc = self._run(self.t["start"], wait=False)
         deadline = time.time() + float(self.t.get("ready_timeout", 30))
+        direct = urllib.request.build_opener(urllib.request.ProxyHandler({}))   # never through a system proxy
         while time.time() < deadline:
             if self.proc is not None and self.proc.poll() is not None:
-                raise SystemExit("The product stopped while starting (exit %s): %s" % (self.proc.returncode, self.t["start"]))
+                msg = "The product stopped while starting (exit %s): %s%s" % (self.proc.returncode, self.t["start"], self.tail())
+                self.stop()
+                raise SystemExit(msg)
             try:
-                urllib.request.urlopen(self.url, timeout=2)
+                direct.open(self.url, timeout=2)
                 return self
             except urllib.error.HTTPError:
                 return self                     # it answered, even if not with 200
             except Exception:
                 time.sleep(0.3)
+        msg = "The product did not answer at %s within %ss.%s" % (self.url, self.t.get("ready_timeout", 30), self.tail())
         self.stop()
-        raise SystemExit("The product did not answer at %s within %ss" % (self.url, self.t.get("ready_timeout", 30)))
+        raise SystemExit(msg)
 
     def stop(self):
         if self.proc is not None and self.proc.poll() is None:
