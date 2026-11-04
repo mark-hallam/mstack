@@ -176,6 +176,9 @@ def rules(for_hook):
     if off:
         lines.append("Switched off by the person (do not use): %s. If they say \"don't use <skill>\" for a task, "
                      "honour it for that task." % ", ".join(off))
+    lines.append("To switch a skill off for good, run only: %s disable <skill> (it writes %s). Never edit CLAUDE.md, "
+                 "AGENTS.md, settings.json or any other instructions or settings file for a switch, and never unset "
+                 "MSTACK_HOME to reach another home." % (tool, home("config.json")))
     names = [s["name"] for s in on]
     if "ping-me" in names:
         lines.append("Always on, ping me: whenever you need the person's decision or input, or a task they asked for "

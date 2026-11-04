@@ -13,6 +13,10 @@ straight away and without being asked.
 
 - If `~/.mstack/config.json` lists `ping-me` under `"disabled"`, or the person said "no pings" (or similar)
   for this task, do not notify.
+- To switch it off for good, run only `mstack.py disable ping-me`, which writes `~/.mstack/config.json`
+  (or `$MSTACK_HOME/config.json` when that is set). Never edit CLAUDE.md, AGENTS.md or any settings file
+  for a switch, and never unset `MSTACK_HOME` to reach another home. "No pings" for one task is not
+  remembered next session, by design; the config file is.
 - If `~/.mstack/learned/ping-me.md` exists, read it: it holds this person's accepted improvements, and they
   win over this file.
 

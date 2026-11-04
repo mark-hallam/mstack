@@ -69,6 +69,35 @@ def main():
         run("enable", "ping-me")
         run("disable", "no-such-skill", expect=1)
         check(True, "an unknown skill is refused")
+        check("run only:" in start and "disable <skill>" in start and "Never edit CLAUDE.md" in start,
+              "the session start rules say the off switch is the config file and nothing else")
+
+        # the off path touches nothing but ~/.mstack/config.json (a stand-in HOME with the usual files)
+        fake_home = os.path.join(work, "fake-home")
+        for rel, body in (("CLAUDE.md", "# mine\n"), (".claude/settings.json", "{}\n"), (".codex/AGENTS.md", "# mine\n"),
+                          (".codex/config.toml", 'model = "x"\n')):
+            os.makedirs(os.path.dirname(os.path.join(fake_home, rel)), exist_ok=True)
+            with open(os.path.join(fake_home, rel), "w") as fh:
+                fh.write(body)
+        home2 = os.path.join(fake_home, ".mstack")
+        env2 = dict(env, HOME=fake_home, MSTACK_HOME=home2)
+
+        def listing():
+            found = {}
+            for base, _, names in os.walk(fake_home):
+                for n in names:
+                    path = os.path.join(base, n)
+                    with open(path, "rb") as fh:
+                        found[os.path.relpath(path, fake_home)] = fh.read()
+            return found
+        before = listing()
+        subprocess.run([sys.executable, TOOL, "disable", "outcome-first"], capture_output=True, env=env2, check=True)
+        subprocess.run([sys.executable, TOOL, "enable", "outcome-first"], capture_output=True, env=env2, check=True)
+        after = listing()
+        new_files = set(after) - set(before)
+        changed = [k for k in before if after.get(k) != before[k]]
+        check(new_files == {os.path.join(".mstack", "config.json")} and not changed,
+              "the off switch writes only config.json and changes no other file in the home")
 
         # ping me
         run("ping", "Need your OK to publish: 2 options in the chat", "--title", "mStack")

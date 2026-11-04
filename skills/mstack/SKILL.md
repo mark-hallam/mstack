@@ -31,6 +31,12 @@ The shared tool is `scripts/mstack.py` (next to this file). Below, `MSTACK` mean
   it for that task. No file changes.
 - Every mStack skill checks the config before it starts. `MSTACK enabled <skill>` exits 0 when it is on.
 
+**The off switch is that one file and nothing else.** Switching a skill off, for good or for a task, never
+edits CLAUDE.md, AGENTS.md, `.cursor/rules`, `settings.json`, `config.toml` or any other instructions or
+settings file, and never works around `MSTACK_HOME` (if it is set, that is the home to use; never unset it
+to reach the person's real `~/.mstack`). If the person wants a rule written into their own instructions
+file, they write it, or they ask for exactly that and see the change first.
+
 ## Getting better, privately
 
 Each skill learns from how it is used, on this computer only. Nothing leaves the machine unless the person
