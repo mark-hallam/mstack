@@ -177,7 +177,12 @@ def main():
             with open([p for p in paths if p.endswith("report.pdf")][0], "rb") as fh:
                 check(fh.read(5) == b"%PDF-", "the PDF is a real PDF")
             with open([p for p in paths if p.endswith("report-phone.png")][0], "rb") as fh:
-                check(fh.read(8) == b"\x89PNG\r\n\x1a\n", "the PNG is a real PNG")
+                head = fh.read(24)
+                check(head[:8] == b"\x89PNG\r\n\x1a\n", "the PNG is a real PNG")
+            if shutil.which("sips"):     # the phone frame: exactly phone width at scale 2, never Chrome's 500 px floor
+                check(int.from_bytes(head[16:20], "big") == 780 and not any("without the phone-width frame" in n
+                                                                            for n in out.get("notes", [])),
+                      "the phone PNG is laid out at exactly 390 css px (780 px at scale 2), so nothing is cut off")
             md = os.path.join(work, "notes.md")
             with open(md, "w") as fh:
                 fh.write("# Notes\n\nA line.\n")

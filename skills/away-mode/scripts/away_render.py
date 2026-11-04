@@ -211,6 +211,41 @@ def page_height(url, cfg):
     return int(m.group(1)) if m else None
 
 
+MIN_WINDOW = 600   # headless Chrome will not lay a page out narrower than about 500 css px
+
+
+def phone_png(url, out, height, cfg):
+    """A true phone-width screenshot. Headless Chrome lays out at 500 css px at least, so a 390 px window
+    crops the right edge off a wider layout. Instead the page sits in a centred phone-width frame inside a
+    wider window, and the frame is cropped out (sips on macOS). False when the crop step is unavailable."""
+    if not shutil.which("sips"):
+        return False
+    work = tempfile.mkdtemp(prefix="mstack-away-phone-", dir=tmp_base())
+    try:
+        wrapper = os.path.join(work, "phone.html")
+        with open(wrapper, "w", encoding="utf-8") as fh:
+            fh.write('<!doctype html><html><head><meta charset="utf-8"></head><body style="margin:0;background:#fff">'
+                     '<iframe src="%s" style="display:block;margin:0 auto;border:0;width:%dpx;height:%dpx"></iframe>'
+                     "</body></html>" % (html.escape(url, quote=True), cfg["phone_width"], height))
+        wide = os.path.join(work, "wide.png")
+        chrome(file_url(wrapper), ["--allow-file-access-from-files", "--screenshot=" + wide,
+                                   "--force-device-scale-factor=%s" % cfg["scale"],
+                                   "--window-size=%d,%d" % (max(MIN_WINDOW, cfg["phone_width"]), height)])
+        if not os.path.exists(wide):
+            return False
+        s = float(cfg["scale"])
+        res = subprocess.run(["sips", "-c", str(int(height * s)), str(int(cfg["phone_width"] * s)), wide, "--out", out],
+                             capture_output=True, timeout=60)
+        return res.returncode == 0 and os.path.exists(out)
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
+def frameable(url, local):
+    """A local file or a page on this computer can be framed; a remote site may refuse to be (frame-ancestors)."""
+    return local or re.match(r"https?://(localhost|127\.0\.0\.1|\[::1\])(:\d+)?/", url or "") is not None
+
+
 def shots_and_pdf(url, base, result, cfg, local):
     """PDF, phone PNG (first screen and full page if short), and for addresses a desktop PNG too."""
     scale = "--force-device-scale-factor=%s" % cfg["scale"]
@@ -218,7 +253,10 @@ def shots_and_pdf(url, base, result, cfg, local):
     ok, _ = chrome(url, ["--print-to-pdf=" + pdf, "--no-pdf-header-footer"])
     add(result, pdf, "PDF of the page")
     phone = base + "-phone.png"
-    chrome(url, ["--screenshot=" + phone, scale, "--window-size=%d,%d" % (cfg["phone_width"], cfg["phone_height"])])
+    if not (frameable(url, local) and phone_png(url, phone, cfg["phone_height"], cfg)):
+        chrome(url, ["--screenshot=" + phone, scale, "--window-size=%d,%d" % (cfg["phone_width"], cfg["phone_height"])])
+        result["notes"].append("phone screenshot taken without the phone-width frame: Chrome lays the page out at "
+                               "about 500 css px, so the right edge may be cut off")
     add(result, phone, "first screen at phone width (%d css px, light theme)" % cfg["phone_width"])
     if local:
         height = page_height(url, cfg)
@@ -228,7 +266,8 @@ def shots_and_pdf(url, base, result, cfg, local):
             result["notes"].append("the whole page fits one phone screen")
         elif height <= cfg["phone_height"] * cfg["full_page_screens"]:
             full = base + "-phone-full.png"
-            chrome(url, ["--screenshot=" + full, scale, "--window-size=%d,%d" % (cfg["phone_width"], height)])
+            if not phone_png(url, full, height, cfg):
+                chrome(url, ["--screenshot=" + full, scale, "--window-size=%d,%d" % (cfg["phone_width"], height)])
             add(result, full, "full page at phone width (%d css px tall)" % height)
         else:
             result["notes"].append("page is %d css px tall (over %d phone screens): the PDF carries the full content" % (
