@@ -11,6 +11,7 @@ notifications go to a stand-in command instead of the real desktop. A local web 
 import http.server
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -220,10 +221,33 @@ def main():
               "codex setup is safe to run twice")
         other = os.path.join(work, "codex2", "config.toml")
         os.makedirs(os.path.dirname(other))
-        open(other, "w").write('notify = ["my-notifier"]\n')
-        out = run("setup", "codex", "--codex-config", other, "--write")
-        check(open(other).read() == 'notify = ["my-notifier"]\n' and "left it alone" in out,
-              "codex setup never replaces the person's own notify")
+        mine = os.path.join(work, "my-notifier.txt")
+        theirs = [sys.executable, "-c", "import sys; open(%r, 'a').write(sys.argv[1] + chr(10))" % mine]
+        open(other, "w").write('model = "x"\nnotify = %s\n\n[profiles.fast]\nmodel = "y"\n' % json.dumps(theirs))
+        out = run("setup", "codex", "--codex-config", other)
+        check("then your own program" in out and "notify = %s" % json.dumps(theirs) in open(other).read(),
+              "codex setup shows that an existing notify would be chained, and changes nothing without --write")
+        run("setup", "codex", "--codex-config", other, "--write")
+        text = open(other).read()
+        m = re.search(r'(?m)^notify = (.*)$', text)
+        chained = json.loads(m.group(1))
+        check(chained[:1] == ["python3"] and "codex-event" in chained and "--also" in chained
+              and json.loads(chained[-1]) == theirs and "# mStack chained" in text and 'model = "y"' in text,
+              "codex setup --write chains the person's own notify after mStack's ping")
+        n = len(pings())
+        subprocess.run([sys.executable, TOOL] + chained[2:] + [json.dumps({"type": "agent-turn-complete", "cwd": "/tmp/x",
+                                                                              "last-assistant-message": "Chained."})],
+                       env=env, check=True, capture_output=True, timeout=60)
+        check(len(pings()) == n + 1 and open(mine).read().count("agent-turn-complete") == 1,
+              "the chained notify pings and then runs the person's own program with the event")
+        run("setup", "codex", "--codex-config", other, "--write")
+        check(open(other).read().count("notify =") == 1, "a chained notify is not chained twice")
+        odd = os.path.join(work, "codex3", "config.toml")
+        os.makedirs(os.path.dirname(odd))
+        open(odd, "w").write('notify = "not-a-list"\n')
+        out = run("setup", "codex", "--codex-config", odd, "--write")
+        check(open(odd).read() == 'notify = "not-a-list"\n' and "left it alone" in out,
+              "a notify that cannot be read as a list is left alone")
 
         project = os.path.join(work, "project")
         run("setup", "cursor", "--project", project, "--write")

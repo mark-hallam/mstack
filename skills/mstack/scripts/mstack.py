@@ -388,6 +388,16 @@ def cmd_ping(args):
             last = " ".join((event.get("last-assistant-message") or "").split())
             where = os.path.basename(event.get("cwd") or "") or "Codex"
             notify(last[:160] or "Finished. Back to you.", "Codex finished: %s" % where)
+        if args.also:                                        # the notify program the person already had: run it too
+            try:
+                original = json.loads(args.also)
+            except ValueError:
+                original = None
+            if isinstance(original, list) and original and all(isinstance(x, str) for x in original):
+                try:
+                    subprocess.run(original + [args.extra or "{}"], timeout=30)
+                except (OSError, subprocess.SubprocessError):
+                    pass
         return
     if args.message == "test":
         print("sent: %s" % ", ".join(notify("mStack test: notifications reach you.", "mStack")))
@@ -467,15 +477,29 @@ def setup_codex(args):
         with open(cfg_path, encoding="utf-8") as fh:
             text = fh.read()
     top = re.split(r"(?m)^\s*\[", text, maxsplit=1)[0]
-    has_notify = re.search(r"(?m)^\s*notify\s*=", top)
-    ours = has_notify and "mstack.py" in top
+    has_notify = re.search(r"(?m)^[ \t]*notify[ \t]*=[ \t]*(.*)$", top)
+    ours = bool(has_notify) and "mstack.py" in has_notify.group(0)
+    previous = None                                          # the person's own notify program, chained if we can read it
+    if has_notify and not ours:
+        try:
+            previous = json.loads(has_notify.group(1).split("#")[0].strip())
+        except ValueError:
+            previous = None
+        if not (isinstance(previous, list) and previous and all(isinstance(x, str) for x in previous)):
+            previous = None
+        else:
+            line = 'notify = ["python3", %s, "ping", "codex-event", "--also", %s]' % (json.dumps(tool), json.dumps(json.dumps(previous)))
     block = "<!-- mstack:start -->\n## mStack\n\n%s\n<!-- mstack:end -->" % rules(for_hook=False)
     if not args.write:
-        print("Would add to %s (at the top, before any [section]):\n  %s\n%sand put mStack's routing block in %s:\n\n%s\n\n"
-              "Ask the person; then run again with --write." % (
-                  cfg_path, line, "" if not has_notify or ours else
-                  "BUT it already has a notify setting, which mStack will not replace: chain it yourself.\n",
-                  agents_path, block))
+        what = "add to %s (at the top, before any [section])" % cfg_path
+        if previous:
+            what = "replace the notify line in %s with one that runs mStack's ping and then your own program (%s)" % (
+                cfg_path, " ".join(previous))
+        elif has_notify and not ours:
+            what = ("leave the notify line in %s alone (it could not be read as a list of strings; chain it yourself) "
+                    "and would otherwise add" % cfg_path)
+        print("Would %s:\n  %s\nand put mStack's routing block in %s (Codex reads that file in every session):\n\n%s\n\n"
+              "Ask the person; then run again with --write." % (what, line, agents_path, block))
         return
     stable_copy()
     if not has_notify:
@@ -485,8 +509,15 @@ def setup_codex(args):
         with open(cfg_path, "w", encoding="utf-8") as fh:
             fh.write("# mStack ping me: notify when a Codex turn finishes\n%s\n\n%s" % (line, text))
         print("added notify to %s" % cfg_path)
+    elif previous:
+        shutil.copyfile(cfg_path, cfg_path + ".mstack-backup")
+        new_text = text.replace(has_notify.group(0), "# mStack chained the notify program that was here: %s\n%s" % (
+            " ".join(previous), line), 1)
+        with open(cfg_path, "w", encoding="utf-8") as fh:
+            fh.write(new_text)
+        print("chained notify in %s: mStack pings, then your own program runs (backup: %s.mstack-backup)" % (cfg_path, cfg_path))
     elif not ours:
-        print("%s already has a notify setting; left it alone. To chain mStack, run: %s" % (cfg_path, line))
+        print("%s already has a notify setting that could not be read; left it alone. To chain mStack, run: %s" % (cfg_path, line))
     write_block(agents_path, block)
     print("routing block in %s" % agents_path)
 
@@ -595,6 +626,7 @@ def main(argv=None):
     s.add_argument("message", help='the message, or "hook", "codex-event" or "test"')
     s.add_argument("extra", nargs="?", default="", help="the JSON Codex passes to its notify program")
     s.add_argument("--title", default="mStack")
+    s.add_argument("--also", help="codex-event: the person's previous notify program, as a JSON list, to run as well")
     s.set_defaults(fn=cmd_ping)
     s = sub.add_parser("setup")
     s.add_argument("target", choices=("claude-hooks", "codex", "cursor", "ntfy"))
@@ -606,7 +638,15 @@ def main(argv=None):
     s.add_argument("--codex-config", help="codex: the config file (default ~/.codex/config.toml)")
     s.add_argument("--project", help="cursor: the project folder (default: here)")
     s.set_defaults(fn=cmd_setup)
+    argv = list(sys.argv[1:] if argv is None else argv)
+    also = None
+    if argv[:1] == ["ping"] and "--also" in argv:            # Codex puts the event last, after --also <program>
+        i = argv.index("--also")
+        also = argv[i + 1] if i + 1 < len(argv) else ""
+        del argv[i:i + 2]
     args = ap.parse_args(argv)
+    if also is not None:
+        args.also = also
     args.fn(args)
 
 

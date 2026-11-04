@@ -1,6 +1,6 @@
 ---
 name: mstack
-description: mStack's always-on index. Lists every mStack skill and when each switches on by itself, so the person never has to name one. Use at the start of any substantial task to see which mStack skills apply; when the person says to switch an mStack skill off or on, or "don't use <skill>" for a task; when they ask to "review my skills", improve a skill, or see what a skill has learned; after any mStack skill finishes, to record privately how it went; and to set mStack up in Codex, Cursor or Claude Code hooks.
+description: mStack's always-on index. Lists every mStack skill and when each switches on by itself, so the person never has to name one. Use at the start of any substantial task to see which mStack skills apply; when the person says to switch an mStack skill off or on, or "don't use <skill>" for a task; when they ask to "review my skills", "what have my skills learned", "improve a skill", "which skills do I have", or to see what an mStack skill has learned (not for creating a new skill from scratch); after any mStack skill finishes, to record privately how it went; and to set mStack up in Codex, Cursor or Claude Code hooks.
 ---
 
 # mStack
@@ -60,8 +60,12 @@ chooses to share an improvement.
 
 - **Claude Code**: install the plugin (`/plugin marketplace add mark-hallam/mstack`, then
   `/plugin install mstack@mstack`). Its session start hook adds the always-on rules to every session.
-- **Codex**: `MSTACK setup codex` shows what it would add (mStack's routing block in `~/.codex/AGENTS.md`,
-  and ping-me's `notify` line in `~/.codex/config.toml`). Ask the person, then run it again with `--write`.
+- **Codex**: `MSTACK setup codex` shows what it would add: mStack's routing block in `~/.codex/AGENTS.md`
+  (Codex reads that file in every session; without the block the skills are visible but switch on less
+  reliably) and ping-me's `notify` line in `~/.codex/config.toml`. If a `notify` program is already there,
+  it is chained, not replaced: mStack pings first, then the person's own program runs with the same event;
+  the original line is kept in a comment and a `.mstack-backup` copy. Ask the person, then run it again
+  with `--write`. Run it again after an mStack update to refresh the block.
 - **Cursor**: `MSTACK setup cursor --project <folder>` shows an always-applied rule for that project. Ask,
   then `--write`.
 - **Any other agent**: `MSTACK routing` prints the block to paste into its instructions, or point it at

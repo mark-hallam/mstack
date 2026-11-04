@@ -85,8 +85,9 @@ on by themselves. (Without the plugin, copy the folders in `skills/` into `~/.cl
 
 **Codex**: clone this repository, then ask Codex to run
 `python3 skills/mstack/scripts/mstack.py setup codex`. It shows what it would add to `~/.codex/AGENTS.md`
-(so the skills switch on by themselves) and `~/.codex/config.toml` (ping-me), and writes it only after you
-say yes.
+(so the skills switch on by themselves) and `~/.codex/config.toml` (ping-me; a `notify` program you already
+have is chained, not replaced), and writes it only after you say yes. Both steps matter: without the
+AGENTS.md block Codex can see the skills but picks them less reliably.
 
 **Cursor**: `python3 skills/mstack/scripts/mstack.py setup cursor --project <your project>` adds an
 always-applied rule, after showing it to you.

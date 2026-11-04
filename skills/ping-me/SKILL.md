@@ -1,6 +1,6 @@
 ---
 name: ping-me
-description: Notify the person on their phone and watch, without being asked, whenever you need their decision or input, or a task they asked for is complete or blocked. On by default, in every session, so they can step away while you work. Use whenever you are about to ask the person a question, wait for their approval, stop because something only they can do, or finish or give up on a task they gave you. Also use to set up notifications for Claude Code, Codex, Cursor or a phone service, or when the person says "ping me", "let me know when it's done", "notify me", "no pings" or "stop notifying me".
+description: Notify the person on their phone and watch, without being asked, whenever you need their decision or input, or a task they asked for is complete or blocked. On by default, in every session, so they can step away while you work. Use whenever you are about to ask the person a question, wait for their approval, stop because something only they can do, or finish or give up on a task they gave you. Also use to set up notifications for Claude Code, Codex, Cursor or a phone service, or when the person says "ping me", "let me know when it's done", "ping me if you need anything", "tell me when you're finished", "notify me", "I'm stepping away", "no pings" or "stop notifying me".
 ---
 
 # Ping me
