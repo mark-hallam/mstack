@@ -1,0 +1,62 @@
+{
+  "name": "My product",
+  "about": "One short paragraph for reviewers who have never seen it: what it is, who it is for, what it promises, and the design direction (for example: Apple clean, a sidebar and a list with a detail pane, light theme first with a dark theme).",
+  "persona": "a first-time user who is not technical, uses a Mac and an iPhone, and expects apps to work like Apple's.",
+  "note": "",
+  "target": {
+    "url": "http://127.0.0.1:{port}/",
+    "start": "python3 -m http.server {port} --bind 127.0.0.1",
+    "cwd": ".",
+    "setup": [],
+    "env": {},
+    "ready_timeout": 30
+  },
+  "viewports": {
+    "desktop": {"w": 1440, "h": 1000},
+    "phone": {"w": 390, "h": 844, "mobile": true}
+  },
+  "views": [
+    {"id": "home-desktop", "name": "Home", "group": "Desktop", "viewport": "desktop", "steps": [{"do": "goto", "url": "{url}"}]},
+    {"id": "home-phone", "name": "Home", "group": "Phone", "viewport": "phone", "steps": [{"do": "goto", "url": "{url}"}]},
+    {"id": "home-dark", "name": "Home", "group": "Dark theme", "viewport": "desktop", "scheme": "dark", "steps": [{"do": "goto", "url": "{url}"}]}
+  ],
+  "journeys": [
+    {"id": 1, "name": "First visit", "viewport": "desktop 1440x1000", "task": "Open the product for the first time. Say what it is for and what to do first, then do that first thing end to end."},
+    {"id": 2, "name": "The main job", "viewport": "desktop", "task": "Do the one job people come here for, from start to finish, and confirm the result shows in the right place."},
+    {"id": 3, "name": "On the phone", "viewport": "phone 390x844, mobile", "task": "Do journeys 1 and 2 on the phone: navigation, opening an item, going back, taking an action."},
+    {"id": 4, "name": "Keyboard and dark mode", "viewport": "desktop", "task": "Use only the keyboard (Tab, Enter, arrows, Escape) to do journey 2 and check focus is always visible. Then load the main screens with \"scheme\": \"dark\" and check everything is readable."}
+  ],
+  "criteria": [
+    {"name": "Clear", "means": "obvious what to do next and why, no jargon."},
+    {"name": "Quick", "means": "the fewest steps, nothing asked twice."},
+    {"name": "Trust", "means": "nothing happens without the person's say so; numbers show where they come from; nothing overstated."},
+    {"name": "Familiar", "means": "behaves like a well made Apple app."},
+    {"name": "Calm", "means": "what matters first, nothing cluttered or shouting."},
+    {"name": "Works everywhere", "means": "phone, keyboard, screen reader labels, dark mode, large text."}
+  ],
+  "stages": [
+    {"name": "Stage 1", "when": "once the first journeys reach 8 or more", "active": false, "criteria": [
+      {"name": "Time to value", "means": "a first-time user gets real value quickly, measured step by step."},
+      {"name": "Error recovery", "means": "every failure ends in one plain sentence and one way forward."},
+      {"name": "Copy", "means": "plain English, no jargon, every number explained where it appears."}
+    ]},
+    {"name": "Stage 2", "when": "once the main features exist", "active": false, "criteria": [
+      {"name": "Agent experience", "means": "an AI agent can complete every journey through the product's command line or connector alone and gets the same result and the same refusals as a person."},
+      {"name": "Accessibility, measured", "means": "automated contrast and keyboard checks pass, screen reader labels are complete, 200 percent text size works, reduced motion is respected."},
+      {"name": "Speed", "means": "every screen draws in under a second; actions answer in under half a second."}
+    ]},
+    {"name": "Stage 3", "when": "before real users", "active": false, "criteria": [
+      {"name": "Five-second test", "means": "a stranger shown the main screen for five seconds can say what to do next."},
+      {"name": "Emotional tone", "means": "honest and still encouraging; never discouraging, never flattering."},
+      {"name": "Consistency", "means": "the same words, icons and patterns for the same thing on every screen."},
+      {"name": "Data safety", "means": "nothing is lost on a refresh, a crash or a closed laptop; every change can be undone or is logged."},
+      {"name": "Delight", "means": "the moments that matter feel earned and worth sharing."}
+    ]}
+  ],
+  "reviewers": [
+    {"id": "claude", "name": "Claude", "maker": "Anthropic", "colour": "#C15F3C", "kind": "agent"},
+    {"id": "codex", "name": "Codex", "maker": "OpenAI", "colour": "#1f6feb", "kind": "command", "shared_chrome": true, "timeout_minutes": 60,
+     "command": ["codex", "exec", "-s", "workspace-write", "-c", "sandbox_workspace_write.network_access=true", "--skip-git-repo-check", "-C", "{work}", "-o", "{reply}", "-"]}
+  ],
+  "notify": null
+}

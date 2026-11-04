@@ -1,0 +1,24 @@
+{
+  "name": "mstack",
+  "owner": {
+    "name": "Mark Hallam",
+    "url": "https://github.com/mark-hallam"
+  },
+  "metadata": {
+    "description": "Mark Hallam's skills for people and their AI agents.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "mstack",
+      "source": "./",
+      "description": "Skills for people and their AI agents, agent agnostic. Includes multi-evaluator: rounds of independent AI design review until every user journey scores 10 out of 10.",
+      "version": "0.1.0",
+      "author": {"name": "Mark Hallam"},
+      "homepage": "https://github.com/mark-hallam/mstack",
+      "license": "MIT",
+      "category": "productivity",
+      "keywords": ["ux", "design-review", "evaluation"]
+    }
+  ]
+}

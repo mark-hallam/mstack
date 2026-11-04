@@ -1,0 +1,6 @@
+.DS_Store
+__pycache__/
+*.pyc
+node_modules/
+# review folders made while trying the skill on this repository
+design-review/
