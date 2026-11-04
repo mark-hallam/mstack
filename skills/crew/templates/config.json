@@ -1,0 +1,37 @@
+{
+  "reserve_percent": 15,
+  "quiet_hours": {"start": "22:00", "end": "07:00"},
+  "heavy_tokens": 200000,
+  "usage_max_age_minutes": 90,
+  "probe": true,
+  "conservative": {"jobs_per_day": 3},
+  "digest": {"at": "07:00"},
+  "tick_minutes": 15,
+  "tests_every_minutes": 120,
+  "job_timeout_minutes": 90,
+  "runners": {
+    "claude": {"command": ["claude", "-p"], "models": {"small": "haiku", "fast": "sonnet", "top": "opus"}, "probe_model": "haiku", "extra_args": []},
+    "codex": {"command": ["codex", "exec"], "models": {}, "extra_args": []}
+  },
+  "projects": [
+    {
+      "id": "example-app",
+      "path": "~/code/example-app",
+      "branch": "main",
+      "stream": "products",
+      "mode": "branch",
+      "github": false,
+      "test": "python3 -m unittest discover -s tests",
+      "notes": "Plain English in every file. Keep files under 500 lines.",
+      "sources": [
+        {"kind": "plan", "file": "docs/PLAN.md"},
+        {"kind": "evaluator", "dir": "design-review"},
+        {"kind": "tests"},
+        {"kind": "daily", "id": "post-draft", "at": "05:00", "tier": "small", "runner": "auto",
+         "title": "Draft one build-in-public post from yesterday's commits",
+         "prompt": "Read git log --since=yesterday. Draft one short post (under 70 words) about what was built, as a file under drafts/posts/. Drafts only: never post it.",
+         "done": ["A draft file exists under drafts/posts/"]}
+      ]
+    }
+  ]
+}

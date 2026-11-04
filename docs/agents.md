@@ -30,6 +30,7 @@ to your agent's global instructions (for Codex and Cursor, `mstack.py setup code
 | outcome-first | Any task bigger than a few steps: pin the outcome, ask every question in one batch with defaults, then run to a verified outcome. |
 | multi-evaluator | The person wants their site, app or document reviewed and improved in rounds by independent AI reviewers from different makers until it is ready for real people (every journey 9 or better, reviewers agreeing, no high fix open, two rounds running). |
 | away-mode | You are about to present a file, report, mockup, screenshot or link, or the person says they are on their phone, away, out or back. Notice when they are away and deliver phone-readable copies (PNG, PDF, files in the chat, key points in the reply). On by default. |
+| crew | The person wants work to carry on in the background while they are away or asleep, within the usage they already pay for: a queue across projects on the cheapest fitting model, their 15% of every usage window kept, drafts and side branches only, a morning digest. Also "what did the crew finish" and "what is my usage". |
 | mstack | The person switches a skill off or on, asks to "review my skills", or an mStack skill finishes (record privately how it went). |
 
 When one applies, read `~/mstack/skills/<skill>/SKILL.md` in full and follow it.

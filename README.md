@@ -18,6 +18,7 @@ there, switching on by itself when it is relevant. Switch any of them off whenev
 | [outcome-first](skills/outcome-first/SKILL.md) | The path of least resistance: your agent pins down the outcome you want, asks every question once (with sensible defaults), then works to a verified result on its own, in parallel, surviving restarts and usage limits, and reports once. | On |
 | [multi-evaluator](skills/multi-evaluator/SKILL.md) | Improves a product's design in rounds until it is ready for real people: every user journey 9 or better from independent AI reviewers made by different companies, agreeing within a point, with no high-severity fix open, two rounds running. Before and after screenshots and a report every round. | On |
 | [away-mode](skills/away-mode/SKILL.md) | Notices by itself when you are away from your computer and following from your phone, and presents every output in a form the phone can show: screenshots, PDFs, files sent to the chat, and the key points in the message. No more asking for a screenshot. | On |
+| [crew](skills/crew/SKILL.md) | Keeps useful work running in the background all the time, within the usage you already pay for, so you are taken out of every job you do not need to be in: one queue across your projects, the cheapest model that fits each job, your 15% of every usage window kept, drafts and side branches only, one morning digest with evidence. | On |
 | [mstack](skills/mstack/SKILL.md) | The index: which skills switch on when, the on and off switches, and private self-improvement ("review my skills"). | Always |
 
 ### ping-me: walk away, get pinged
@@ -75,6 +76,22 @@ screenshot; Markdown becomes HTML then PDF; a local web app becomes desktop and 
 them into the chat, and puts the 3 to 5 key points in the message itself. Never just a path. When you are
 back at the computer, local links and `open` commands return.
 
+### crew: everything, all the time, within what you already pay for
+
+Your agent keeps useful work going in the background and takes you out of every job you do not need to be
+in. Each project says where its work comes from, in a small private config outside the repository: a plan or
+backlog file, an evaluator's "do these next" list, failing tests, a daily job (idea mining, an inbox check, a
+follow-up or post draft). Crew turns those into one queue with an outcome, done checks, the model tier and an
+estimate for each job, and runs them on the cheapest model that can do them, with only the files each job
+needs, heavy jobs in the hours you are not using your own sessions. Usage is measured, never guessed: Claude
+Code's own rate limit event and Codex's session log say how full each window is, and crew uses a runner only
+up to 85% of it; at your last 15% it stops and asks whether to keep going. Where a reading is not available
+it runs overnight only, a few jobs a day, and says so. Everything is drafts and side branches: nothing is
+sent, posted, merged, deployed, deleted or paid for; each of those becomes a question with a default. A
+launchd job (or cron, systemd, Task Scheduler) keeps it going across restarts, keeps the Mac awake only while
+a job runs, and never runs two jobs on the same files. One digest a day: what finished with commit SHAs and
+test results, what waits for you, and usage against the cap, as HTML, PDF and a phone-width PNG, with a ping.
+
 ## Install
 
 **Claude Code** (as a plugin):
@@ -130,8 +147,10 @@ python3 tests/run_all.py
 This runs the leak and style scan, the packaging checks, and each skill's self-test: switches, pings (to a
 stand-in, never your real desktop), the private journal and reviews, the setup for each agent (on temporary
 copies of the settings files), the outcome plan with a stand-in crontab, away detection with stand-in
-machine signals plus a real render when Chrome is present, and three review rounds on a tiny local page
-with stand-in reviewers (no AI and no network beyond your own computer).
+machine signals plus a real render when Chrome is present, the crew queue with a stand-in runner on a
+throwaway repository (the stop and ask at the reserve, the conservative fallback, the file lock, the stop
+file, an install dry run that writes nothing), and three review rounds on a tiny local page with stand-in
+reviewers (no AI and no network beyond your own computer).
 
 ## Licence
 

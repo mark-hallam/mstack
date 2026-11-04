@@ -12,7 +12,7 @@
     {
       "name": "mstack",
       "source": "./",
-      "description": "Skills for people and their AI agents, agent agnostic, switching on by themselves: ping-me, away-mode, outcome-first, multi-evaluator and the mstack index with private self-improvement.",
+      "description": "Skills for people and their AI agents, agent agnostic, switching on by themselves: ping-me, away-mode, outcome-first, multi-evaluator, crew and the mstack index with private self-improvement.",
       "version": "0.3.0",
       "author": {
         "name": "Mark Hallam"

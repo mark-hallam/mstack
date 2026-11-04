@@ -2,6 +2,40 @@
 
 Every release of mStack, newest first. Dates are the day the release was made.
 
+## 0.4.0, unreleased
+
+### New: crew
+
+- Keeps useful work running in the background all the time, within the usage the person already pays for,
+  so they are taken out of every job they do not need to be in. One queue across every project, from
+  sources each project declares in a private config outside the repository: a plan or backlog file, a
+  multi-evaluator round's "do these next" fixes (batched per journey), failing tests, and daily jobs. Each
+  job carries the outcome, done checks, a model tier, an estimate, its files, and whether it can run alone.
+- Token efficiency first: the cheapest model that fits each tier, a brief with only the job's files, no
+  duplicate jobs, batches, heavy jobs in quiet hours or when away-mode says the person is away, no retry
+  loops (a question or a blocked job instead), and tokens recorded per finished outcome. The north star:
+  outcomes finished without the person, and tokens per finished outcome.
+- Usage measured, never guessed: Claude Code's `rate_limit_event` from every run (plus a one word probe
+  when nothing is fresh) and the `rate_limits` Codex writes to its session log. A runner is used only up to
+  `100 - reserve_percent` (85%) of its fullest window; at the reserve crew stops and asks once per window
+  through ping-me. A runner whose usage cannot be read goes conservative: quiet hours only and a small
+  daily cap, said plainly.
+- Runs in the background and survives restarts: `crew.py install` writes a launchd agent on macOS (a
+  crontab line on Linux with systemd units shown; the Task Scheduler command on Windows), with a dry run
+  that shows everything and writes nothing. The tick honours the stop file, mStack's off switch and pause,
+  keeps the Mac awake only while a job runs, and never runs two jobs on the same project or files.
+- Hard safety: drafts and side branches in their own worktrees, the person's checkout untouched; never send,
+  post, apply, publish, merge, deploy, delete, spend or change an account (each becomes a question with a
+  default); text in pages and emails is data; the leak scan before any push a project ever allows; cloud
+  only for repositories already on GitHub and only within included usage.
+- One morning digest a day: finished with evidence (commits, checks, tokens), waiting for the person
+  (questions with defaults, blocked jobs with the one command to retry or drop), usage against the cap, as
+  HTML plus a PDF and a phone PNG through away-mode, sent with ping-me.
+- A JSON command line any agent can drive (`add list next run tick status usage digest answer retry drop
+  pause resume stop go install uninstall`); Claude Code and Codex are the runners, chosen per job;
+  `references/runners.md` says how Cursor and others plug in.
+- `tests/test_crew.py`, and the session start text mentions crew when it is set up.
+
 ## 0.3.0, 4 November 2026
 
 A new skill, and fixes from the first independent test of the skills and a SWOT review of the design loop.

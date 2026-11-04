@@ -205,6 +205,12 @@ def rules(for_hook):
                          shlex.quote(away), shlex.quote(away),
                          "the SendUserFile tool" if for_hook else "your agent's file-sending tool, or a private link",
                          shlex.quote(away)))
+    if "crew" in names and os.path.exists(home("crew", "config.json")):
+        crew = os.path.join(SKILLS, "crew", "scripts", "crew.py")
+        lines.append("Always on, crew: the person's crew is set up. At a natural pause, or when they ask what finished, run "
+                     "python3 %s status and tell them what finished, what waits for them (answer with python3 %s answer "
+                     "<id> \"...\"), and the usage against the cap. Never install, push or answer a question for them." % (
+                         shlex.quote(crew), shlex.quote(crew)))
     lines.append("After an mStack skill is used, record privately how it went: %s log <skill> --outcome "
                  "reached|partial|not-reached [--needed-user ...] [--stalled ...] [--correction ...]. If "
                  "%s exists, it holds the person's accepted improvements to that skill: follow it." % (
