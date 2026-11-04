@@ -80,19 +80,33 @@ own say-so.
 Then report **once**: the outcome, the evidence for each done check, and anything left for the person. Ping
 them (the ping-me skill).
 
-## 6. If a usage limit stops you
+## 6. If a usage limit stops you (what works, plainly)
 
-Before your session ends, make sure `progress.md` is current, then schedule your own resume:
+A usage limit stops you mid-turn, before you can schedule anything, and **Claude Code has no built-in
+after-the-limit resume**: its wakeup tool is a loop timer capped at one hour, not a scheduler. So the only
+resume that works is one armed **in advance**, from the computer's own scheduler, with a command that runs
+unattended. Set it up right after step 3, with the person's yes from step 2, and remove it when done:
 
-- **Claude Code**: use its scheduling (a scheduled wakeup or task) to resume after the limit resets, with
-  the prompt "Resume the mStack outcome <slug>: read its progress.md and continue".
-- **Codex**: `codex exec resume --last "Resume the mStack outcome <slug>: read its progress.md and continue"`
-  is a good `--resume-command`.
-- **Anywhere else**, or as a fallback: `OUTCOME schedule <slug> --in-minutes 300` (or `--at "YYYY-MM-DD HH:MM"`)
-  adds a one-off line to the computer's crontab that runs the saved resume command and then removes itself.
-  `--dry-run` shows the line first. Only with the person's yes from step 2.
+```
+OUTCOME schedule <slug> --in-minutes 330      # a one-off crontab line; --dry-run shows it first
+OUTCOME unschedule <slug>                     # when the outcome is achieved (resume also removes it)
+```
 
-When you come back, read `progress.md` (or `OUTCOME status --json`) and continue from the next step.
+The line carries this session's PATH and `MSTACK_HOME`, runs the saved `--resume-command` in the project
+folder, logs to `~/.mstack/outcomes/<slug>/resume.log`, and deletes itself so it never runs twice. The tool
+refuses a resume command whose program it cannot find on the PATH now, because cron could not find it
+later either. Resume commands that run unattended:
+
+- **Codex**: `codex exec resume --last "Resume the mStack outcome <slug>: read its progress.md and continue"`.
+- **Claude Code**: `claude -p "Resume the mStack outcome <slug>: read its progress.md and continue"` with
+  whatever permission flags the person accepts for unattended work. Without them it waits for a yes
+  nobody is there to give.
+- Try the command once by hand before relying on it. If nothing can run unattended on this computer, say
+  so in `progress.md` and in your report, and ask the person to start a new session when the limit resets.
+
+Before your session ends for any reason, make sure `progress.md` is current: it is the only thing the
+next session reads. When you come back, read it (or `OUTCOME status --json`) and continue from the next
+step.
 
 ## After
 

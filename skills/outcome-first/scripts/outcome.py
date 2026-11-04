@@ -322,6 +322,21 @@ def marker(slug):
     return "# mstack-resume:%s" % slug
 
 
+def resolve_program(command):
+    """The full path of the program a resume command starts with. Refuses one that cannot be found now,
+    because cron (with its bare PATH) could not find it later either."""
+    try:
+        first = shlex.split(command)[0]
+    except (ValueError, IndexError):
+        raise SystemExit("The resume command is empty or cannot be parsed: %r" % command)
+    found = shutil.which(first)
+    if not found:
+        raise SystemExit("The resume command starts with %r, which is not on this PATH, so a scheduled resume would fail. "
+                         "Use its full path (for example the output of: which codex) or a command that exists, and try "
+                         "it once by hand first." % first)
+    return found
+
+
 def cmd_schedule(args):
     o = load(args.slug)
     if not o.get("resume_command"):
@@ -329,17 +344,22 @@ def cmd_schedule(args):
                          "or use your agent's own scheduler.")
     when = (datetime.datetime.now() + datetime.timedelta(minutes=args.in_minutes)) if args.in_minutes is not None else \
         datetime.datetime.strptime(args.at, "%Y-%m-%d %H:%M")
+    program = resolve_program(o["resume_command"])
     py = sys.executable or "python3"
-    env = "MSTACK_HOME=%s " % shlex.quote(os.environ["MSTACK_HOME"]) if os.environ.get("MSTACK_HOME") else ""
+    # cron runs with a bare PATH where claude, codex and node are not found, so the line carries this PATH,
+    # exported (an assignment in front of cd would only last for the cd).
+    env = "export PATH=%s; " % shlex.quote(os.environ.get("PATH", ""))
+    if os.environ.get("MSTACK_HOME"):
+        env += "export MSTACK_HOME=%s; " % shlex.quote(os.environ["MSTACK_HOME"])
     line = "%d %d %d %d * %scd %s && %s %s resume %s >> %s 2>&1 %s" % (
         when.minute, when.hour, when.day, when.month, env, shlex.quote(o["cwd"]), shlex.quote(py), shlex.quote(SELF),
         shlex.quote(o["slug"]), shlex.quote(home(o["slug"], "resume.log")), marker(o["slug"]))
     if args.dry_run:
-        out(args, {"line": line, "at": when.isoformat(timespec="minutes")}, line)
+        out(args, {"line": line, "at": when.isoformat(timespec="minutes"), "program": program}, line)
         return
     current = [l for l in read_crontab().splitlines() if marker(o["slug"]) not in l]
     write_crontab("\n".join(current + [line]) + "\n")
-    o["schedule"] = {"at": when.isoformat(timespec="minutes"), "how": "crontab"}
+    o["schedule"] = {"at": when.isoformat(timespec="minutes"), "how": "crontab", "program": program}
     o["log"].append({"at": now(), "text": "Resume scheduled for %s." % o["schedule"]["at"]})
     save(o)
     out(args, {"scheduled": o["schedule"], "line": line}, "resume scheduled for %s" % o["schedule"]["at"])

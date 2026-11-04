@@ -99,6 +99,14 @@ def main():
            "--resume-command", "echo resumed >> resumed.txt")
         dry = js("schedule", "second", "--in-minutes", "300", "--dry-run")
         check("# mstack-resume:second" in dry["line"] and not os.path.exists(tab), "schedule --dry-run only shows the line")
+        check("export PATH=" in dry["line"] and "export MSTACK_HOME=" in dry["line"] and dry["program"].endswith("echo"),
+              "the cron line carries this PATH and home, and the resume program was found")
+        js("new", "Unrunnable", "--cwd", project, "--slug", "unrunnable", "--done", "x::true",
+           "--resume-command", "no-such-program-for-mstack --go")
+        r = subprocess.run([sys.executable, TOOL, "schedule", "unrunnable", "--in-minutes", "5", "--dry-run"],
+                           capture_output=True, text=True, env=env)
+        check(r.returncode != 0 and "not on this PATH" in (r.stdout + r.stderr) and not os.path.exists(tab),
+              "a resume command whose program cannot be found is refused")
         open(tab, "w").write("0 9 * * 1 echo the person's own job\n")
         js("schedule", "second", "--in-minutes", "300")
         text = open(tab).read()
@@ -116,7 +124,7 @@ def main():
         check("mstack-resume" not in open(tab).read() and "the person's own job" in open(tab).read(),
               "resume removes its own line, so it never runs twice")
         listed = js("list")["outcomes"]
-        check(sorted(o["slug"] for o in listed) == ["notes", "second"], "list shows every outcome")
+        check(sorted(o["slug"] for o in listed) == ["notes", "second", "unrunnable"], "list shows every outcome")
         check(js("status")["slug"] == "second", "status with no name shows the latest outcome")
     finally:
         shutil.rmtree(work, ignore_errors=True)
