@@ -138,8 +138,29 @@ def main():
         cfg["ping"] = {"ntfy_topic": "private-topic", "ntfy_server": "http://127.0.0.1:%d" % srv.server_address[1]}
         json.dump(cfg, open(os.path.join(work, "home", "config.json"), "w"))
         run("ping", "Done: report ready", "--title", "mStack")
-        srv.shutdown()
         check(got == [("/private-topic", "mStack", "Done: report ready")], "ntfy gets the ping once the person sets a topic")
+
+        # the guided ntfy opt-in: shows first, writes and tests only with --write, removes again
+        cfg["ping"] = {}
+        json.dump(cfg, open(os.path.join(work, "home", "config.json"), "w"))
+        server = "http://127.0.0.1:%d" % srv.server_address[1]
+        out = run("setup", "ntfy", "--server", server)
+        cfg2 = json.load(open(os.path.join(work, "home", "config.json")))
+        check("Would set up" in out and "install the ntfy app" in out and not cfg2["ping"].get("ntfy_topic"),
+              "setup ntfy shows the change and the steps without --write")
+        out = run("setup", "ntfy", "--server", server, "--write")
+        cfg2 = json.load(open(os.path.join(work, "home", "config.json")))
+        topic = cfg2["ping"].get("ntfy_topic", "")
+        check(topic.startswith("mstack-") and len(topic) >= 20 and cfg2["ping"]["ntfy_server"] == server,
+              "setup ntfy --write writes a long random private topic")
+        check(got[-1][0] == "/" + topic and "ntfy" in got[-1][2], "setup ntfy --write sends a test ping through it")
+        run("setup", "ntfy", "--topic", "short", "--write", expect=1)
+        check(True, "a guessable topic is refused")
+        run("setup", "ntfy", "--remove", "--write")
+        check(not json.load(open(os.path.join(work, "home", "config.json")))["ping"]["ntfy_topic"], "setup ntfy --remove turns it off")
+        srv.shutdown()
+        check("reaches their phone only while Remote Control" in run("session-start"),
+              "the session start rules are honest about what reaches a phone")
 
         # the private journal, review my skills, learned rules
         for i in range(3):

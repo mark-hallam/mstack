@@ -24,10 +24,14 @@ there, switching on by itself when it is relevant. Switch any of them off whenev
 
 Whenever your agent needs you (a decision, an approval, something only you can do) or finishes or gets
 stuck on something you asked for, it notifies you straight away, in one short line that leads with what
-you need to do. In Claude Code that reaches your phone and watch through the Claude app. For extra
-reliability it can add platform hooks (Claude Code's `Notification` and `Stop` events, Codex's `notify`
-setting), always showing you the change and asking first. Sending to a phone service such as ntfy is
-optional and off unless you turn it on, because it sends the text to a third party.
+you need to do. What honestly reaches your phone: in Claude Code, with Remote Control connected, the
+Claude app delivers it to your phone and watch; in Codex, Cursor and headless runs the ping is a desktop
+alert on the computer, which does not reach a phone, unless you opt in to ntfy, a free phone push app
+(`mstack.py setup ntfy` walks you through it and writes nothing until you say yes; it is off by default
+because it sends the text to a third party). For extra reliability it can add platform hooks (Claude
+Code's `Notification` and `Stop` events, Codex's `notify` setting), always showing you the change and
+asking first. "No pings" for one task is forgotten next session by design; the off switch in
+`~/.mstack/config.json` is remembered.
 
 ### outcome-first: ask once, then done
 

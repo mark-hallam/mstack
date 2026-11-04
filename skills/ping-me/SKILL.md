@@ -36,21 +36,28 @@ One line, under 200 characters, leading with what they would act on:
 "Need your OK to publish the site: 2 options in the chat" or "Done: report ready, every journey 10/10".
 Never put passwords, tokens or private details in a notification.
 
-## How to send it
+## How to send it, and what honestly reaches a phone
 
-Use the best channel your agent has, in this order:
+Use the best channel your agent has, in this order, and be plain about which one it was:
 
-1. **Claude Code**: the PushNotification tool. With the Claude desktop app's notifications on (its
-   "question", "permission request" and "task complete" notifications) and Remote Control connected,
-   these reach the person's phone and watch.
+1. **Claude Code, interactive, with Remote Control connected**: the PushNotification tool. This is the only
+   path that reaches the person's phone and watch by itself (through the Claude app, with its "question",
+   "permission request" and "task complete" notifications on). If the tool answers that nothing was sent
+   ("the user is at the terminal", "Remote Control not connected"), say so in your reply; do not report a
+   ping that did not happen. In a headless run (`claude -p`) or a subagent there is usually no phone path.
 2. **Codex, Cursor and other agents**: their own notification, if they have one. Otherwise the portable
    tool: `python3 <mstack skill folder>/scripts/mstack.py ping "<message>"` (the mstack skill sits next to
-   this one). It shows a desktop notification on macOS (osascript), Linux (notify-send) or Windows, and
-   phones that mirror the computer's notifications show it too.
-3. **A phone service** (optional, off by default, because it sends the text to a third party): the person
-   can add their own private ntfy topic to `~/.mstack/config.json`:
-   `{"ping": {"ntfy_topic": "<a long private name>"}}` and install the ntfy app. Only suggest it; never turn
-   it on yourself.
+   this one). That is a **desktop** alert on macOS (osascript), Linux (notify-send) or Windows. It does not
+   reach a phone: computers do not forward their banners to phones.
+3. **A free phone push service, if the person opts in**: ntfy (free, open source). Then every ping from
+   the portable tool, Codex included, also reaches the phone. It is off by default because it sends the
+   text to a third party. Guided opt-in: `mstack.py setup ntfy` shows the topic it would create, the app
+   to install and the line it would write to `~/.mstack/config.json`; after the person says yes, run it
+   again with `--write` and it sends a test ping. `--remove` turns it off again. Only suggest it; never
+   turn it on without the yes.
+
+So: phone in Claude Code while Remote Control is on; phone anywhere once ntfy is set up; otherwise a
+desktop alert, and the reply says which.
 
 ## Making it reliable (platform level, with the person's yes)
 

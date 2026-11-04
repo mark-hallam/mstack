@@ -21,12 +21,14 @@ $MSTACK_HOME) unless the person turns on a phone service such as ntfy themselves
   ping codex-event '<json>'            for Codex's notify setting
   ping test                            send a test notification
   setup claude-hooks|codex|cursor      show what would be written; add --write after the person says yes
+  setup ntfy [--topic T] [--server S]  guided opt-in to a free phone push service; --write after the person says yes
 """
 import argparse
 import datetime
 import json
 import os
 import re
+import secrets
 import shlex
 import shutil
 import subprocess
@@ -183,8 +185,11 @@ def rules(for_hook):
     if "ping-me" in names:
         lines.append("Always on, ping me: whenever you need the person's decision or input, or a task they asked for "
                      "is complete or blocked, notify them at once without being asked (%s; one line under 200 "
-                     "characters, leading with what they would act on). Batch questions into one ping." % (
-                         "the PushNotification tool" if for_hook else "your agent's own notification, or: %s ping \"<message>\"" % tool))
+                     "characters, leading with what they would act on). Batch questions into one ping. %s" % (
+                         "the PushNotification tool" if for_hook else "your agent's own notification, or: %s ping \"<message>\"" % tool,
+                         "It reaches their phone only while Remote Control is connected; if the tool says it was not sent, "
+                         "say so in your reply rather than claiming they were pinged." if for_hook else
+                         "That is a desktop alert; it reaches a phone only if the person has set up ntfy (%s setup ntfy)." % tool))
     if "outcome-first" in names:
         lines.append("Always on, outcome first: for any task bigger than a few steps, pin down the outcome and what "
                      "done looks like, ask every question in one batch with defaults, then run to a verified outcome "
@@ -514,8 +519,40 @@ def setup_cursor(args):
     print("wrote %s" % path)
 
 
+def setup_ntfy(args):
+    """Opt in to ntfy, a free phone push service: show the change, write it only with --write, then test it."""
+    cfg = load_config()
+    current = cfg["ping"].get("ntfy_topic") or ""
+    if args.remove:
+        if not args.write:
+            print("Would remove the ntfy topic from %s. Ask the person; then run again with --write." % home("config.json"))
+            return
+        cfg["ping"]["ntfy_topic"] = ""
+        save_config(cfg)
+        print("removed the ntfy topic from %s" % home("config.json"))
+        return
+    topic = args.topic or current or "mstack-" + secrets.token_urlsafe(18)
+    server = (args.server or cfg["ping"].get("ntfy_server") or DEFAULTS["ping"]["ntfy_server"]).rstrip("/")
+    if not re.fullmatch(r"[A-Za-z0-9_-]{8,64}", topic):
+        raise SystemExit("A topic is 8 to 64 letters, digits, - or _ (no spaces), and long enough that nobody can guess it.")
+    steps = ("What this does: every ping is also sent, as plain text, to %s/%s. Anyone who knows the topic name can read "
+             "it, so it is long and random and must stay private. Never put passwords or private details in a ping.\n"
+             "1. On the phone, install the ntfy app (free, open source) and subscribe to the topic: %s\n"
+             "2. This writes to %s: {\"ping\": {\"ntfy_topic\": \"%s\", \"ntfy_server\": \"%s\"}}\n"
+             "3. Then a test ping is sent, so the person can confirm it arrived." % (
+                 server, topic, topic, home("config.json"), topic, server))
+    if not args.write:
+        print("Would set up phone pings through ntfy.\n%s\nAsk the person; then run again with --write." % steps)
+        return
+    cfg["ping"]["ntfy_topic"] = topic
+    cfg["ping"]["ntfy_server"] = server
+    save_config(cfg)
+    print("written to %s (topic %s)" % (home("config.json"), topic))
+    print("test ping sent: %s" % ", ".join(notify("mStack: phone pings are on. This came through ntfy.", "mStack")))
+
+
 def cmd_setup(args):
-    {"claude-hooks": setup_claude, "codex": setup_codex, "cursor": setup_cursor}[args.target](args)
+    {"claude-hooks": setup_claude, "codex": setup_codex, "cursor": setup_cursor, "ntfy": setup_ntfy}[args.target](args)
 
 
 def main(argv=None):
@@ -560,9 +597,11 @@ def main(argv=None):
     s.add_argument("--title", default="mStack")
     s.set_defaults(fn=cmd_ping)
     s = sub.add_parser("setup")
-    s.add_argument("target", choices=("claude-hooks", "codex", "cursor"))
+    s.add_argument("target", choices=("claude-hooks", "codex", "cursor", "ntfy"))
     s.add_argument("--write", action="store_true", help="make the change (only after the person says yes)")
-    s.add_argument("--remove", action="store_true", help="claude-hooks: take mStack's hooks out again")
+    s.add_argument("--remove", action="store_true", help="claude-hooks or ntfy: take mStack's change out again")
+    s.add_argument("--topic", help="ntfy: the private topic name (default: a long random one)")
+    s.add_argument("--server", help="ntfy: the server (default https://ntfy.sh)")
     s.add_argument("--settings", help="claude-hooks: the settings file (default ~/.claude/settings.json)")
     s.add_argument("--codex-config", help="codex: the config file (default ~/.codex/config.toml)")
     s.add_argument("--project", help="cursor: the project folder (default: here)")
