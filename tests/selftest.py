@@ -139,7 +139,16 @@ def main():
         check("The criteria each round used" in page and "chip new" in page, "the report shows the criteria grew")
         check("src='http" not in page and "<link" not in page, "the report is self-contained")
         status = json.loads(run(review, "status", "--json"))
-        check(status["next"].startswith("fix") or status["next"].startswith("done"), "status gives a next step")
+        check(status["next"].startswith("this round passes the stopping rule"), "status says round 3 passes the stopping rule and must hold")
+        r2, r3 = status["rounds"][1], status["rounds"][2]
+        check(not r2["ready"] and any("below 9" in x for x in r2["not_ready_because"]) and r3["ready"],
+              "round 2 fails the stopping rule (below 9) and round 3 passes it")
+        check("Not ready for people" not in page and "passes the stopping rule" in page, "the report shows the stopping rule state")
+        ten_with_fix = json.dumps({"reviewer": "second", "round": 3, "overall": 10, "journeys": [
+            {"id": 1, "score": 10, "if_fixed": 10, "fixes": [{"severity": "low", "fix": "x"}]}, {"id": 2, "score": 8, "if_fixed": 7}]})
+        probs = json.loads(run(review, "validate", "-", "--json", expect=1, stdin=ten_with_fix))["problems"]
+        check(any("a 10 means nothing is left" in x for x in probs) and any("cannot be below the score" in x for x in probs),
+              "validate refuses a 10 with fixes and an if_fixed below the score")
         check(status["rounds"][-1]["overall"] == {"second": 10, "stand-in": 9}, "status reports the latest scores")
         bad = json.dumps({"reviewer": "second", "round": 3, "overall": 11, "journeys": [{"id": 1, "score": 5}]})
         out = run(review, "validate", "-", "--json", expect=1, stdin=bad)

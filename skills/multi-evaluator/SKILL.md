@@ -1,13 +1,15 @@
 ---
 name: multi-evaluator
-description: Improve a product's design in rounds until every user journey scores 10 out of 10 from independent AI reviewers made by different companies. Uses at least two reviewers (for example Claude and Codex). Each round captures the same screens the same way, each reviewer drives the real product in a real browser in fresh context and scores every journey 0 to 10 with an "if fixed" score and specific fixes, and a self-contained HTML report shows the score trend, before and after screenshots and a filmstrip of every round. Use when someone wants a site, app, profile or document reviewed and improved autonomously, asks for independent UX or design reviews, a design review loop, multiple evaluators, before and after screenshots, or "keep improving it until it is 10 out of 10".
+description: Improve a product's design in rounds until it is ready for real people: every user journey scores 9 or better from independent AI reviewers made by different companies, who agree within a point, with no high-severity fix open, held for two rounds. Uses at least two reviewers (for example Claude and Codex). Each round captures the same screens the same way, each reviewer drives the real product in a real browser in fresh context and scores every journey 0 to 10 with an "if fixed" score and specific fixes, and a self-contained HTML report shows the score trend, before and after screenshots and a filmstrip of every round. Use when someone wants a site, app, profile or document reviewed and improved autonomously, asks for independent UX or design reviews, a design review loop, multiple evaluators, before and after screenshots, or "keep improving it until it is 10 out of 10" (the loop stops at ready for people, not at a unanimous 10).
 ---
 
 # Multi-evaluator design improvement loop
 
-Rounds of independent review until every journey scores 10 out of 10. AI scores are a strong signal, not
-proof: when the AI reviewers agree on 10, real first-time people test it, and where they disagree with the
-AI, the people win.
+Rounds of independent review until the product is **ready for people**: every journey scores 9 or better
+from every reviewer, no high-severity fix is open, the reviewers agree within a point, and that has held
+for two rounds in a row. A unanimous 10 is a flag to double check the brief, not the goal. AI scores are
+a strong signal, not proof: when the loop says ready, real first-time people test it, and where they
+disagree with the AI, the people win.
 
 Everything runs through one command line tool, `scripts/eval_loop.py` (next to this file), so a person,
 this agent, or any other agent gets the same results. Every command takes `--dir <review folder>`, and
@@ -75,7 +77,10 @@ loop needs a decision; the config's `notify` command can also send one (see `ref
 
 1. Merge both reviewers' fixes: high severity first, then anything both reviewers raised.
 2. Make the fixes in the product, run its own tests, and write the next round's `changes.md`.
-3. `LOOP start-round`, and repeat until `LOOP status` says every reviewer gives every journey 10.
+3. `LOOP start-round`, and repeat until `LOOP status` says **ready for people** (the stopping rule above,
+   held for two rounds). If a round passes, change nothing big and run one more so it holds. After
+   `max_rounds` (default 6) without reaching it, `status` says to stop and talk to the person: the journeys
+   or criteria may be asking for something the product should not do.
 4. Then real people: five first-time users try the journeys unaided. Record their time, stumbles and words
    in `rounds/r<N>/people.md` (one bullet each; the report shows them). Where they disagree with the AI
    reviewers, the people win: turn what they found into journeys or criteria for the next round.
@@ -87,7 +92,8 @@ loop needs a decision; the config's `notify` command can also send one (see `ref
 - Never let a reviewer submit real payments, messages or personal data. Use demo data and a fresh copy.
 - Sandboxed reviewers (Codex) cannot start Chrome: `review` starts a shared headless Chrome and the brief
   tells them to put `MSTACK_CDP_PORT=<port>` in front of the driver command.
-- If a reviewer's reply does not fit, read `rounds/r<N>/work/<reviewer>/raw-reply.txt`, then rerun it.
+- If a reviewer's reply does not fit, read `rounds/r<N>/work/<reviewer>/raw-reply.txt`, then rerun it. The
+  tool refuses a 10 that still proposes fixes, and an "if fixed" below the score.
 - Keep the review folder in the product's repository (or next to it) so every round is kept.
 
 ## Files
@@ -95,7 +101,7 @@ loop needs a decision; the config's `notify` command can also send one (see `ref
 - `scripts/eval_loop.py`: the command line tool (init, status, start-round, capture, brief, serve, review,
   verdict, validate, report, notify).
 - `scripts/drive.mjs`: the journey driver, a real headless Chrome; reviewers use it directly.
-- `scripts/report.py`: the report builder.
+- `scripts/report.py`: the report builder. `scripts/readiness.py`: the stopping rule and the noise check.
 - `templates/mstack-eval.json`: the starter config.
 - `references/config.md`: every config field. `references/verdict-format.md`: the reply format.
   `references/method.md`: why the loop works this way and how the criteria grow.

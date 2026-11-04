@@ -16,7 +16,7 @@ there, switching on by itself when it is relevant. Switch any of them off whenev
 |---|---|---|
 | [ping-me](skills/ping-me/SKILL.md) | Tells you on your phone and watch, without being asked, whenever your agent needs your decision or input, or a task you asked for is done or blocked. So you can walk away. | On |
 | [outcome-first](skills/outcome-first/SKILL.md) | The path of least resistance: your agent pins down the outcome you want, asks every question once (with sensible defaults), then works to a verified result on its own, in parallel, surviving restarts and usage limits, and reports once. | On |
-| [multi-evaluator](skills/multi-evaluator/SKILL.md) | Improves a product's design in rounds until every user journey scores 10 out of 10 from independent AI reviewers made by different companies, with before and after screenshots and a report every round. | On |
+| [multi-evaluator](skills/multi-evaluator/SKILL.md) | Improves a product's design in rounds until it is ready for real people: every user journey 9 or better from independent AI reviewers made by different companies, agreeing within a point, with no high-severity fix open, two rounds running. Before and after screenshots and a report every round. | On |
 | [away-mode](skills/away-mode/SKILL.md) | Notices by itself when you are away from your computer and following from your phone, and presents every output in a form the phone can show: screenshots, PDFs, files sent to the chat, and the key points in the message. No more asking for a screenshot. | On |
 | [mstack](skills/mstack/SKILL.md) | The index: which skills switch on when, the on and off switches, and private self-improvement ("review my skills"). | Always |
 
@@ -41,7 +41,7 @@ a progress file that survives restarts, schedules its own resume if a usage limi
 when the outcome is proven with evidence (tests passing, a page loading, a file you can open), not on its
 own say-so. You hear from it again when it is done, or when a decision is genuinely yours.
 
-### multi-evaluator: keep improving until it is 10 out of 10
+### multi-evaluator: keep improving until it is ready for people
 
 You describe what a real person must be able to do with your app, site or document (the **journeys**) and
 what good looks like (the **criteria**: clear, quick, trust, familiar, calm, works everywhere, and more as
@@ -49,8 +49,10 @@ it matures). Each round, the same screens are captured the same way; at least tw
 AI makers (by default Claude and Codex) each drive the real product in a real browser, in fresh context,
 and score every journey 0 to 10 with an "if fixed" score and specific fixes. You get one HTML page with
 the score trend, each journey against last round, the proposals, and before and after screenshots with a
-filmstrip of every round. When every reviewer gives every journey 10, real people try it, and where they
-disagree with the AI reviewers, the people win.
+filmstrip of every round. The loop stops when it is ready for people: every journey 9 or better from every
+reviewer, reviewers within a point of each other, no high-severity fix open, held for two rounds (a
+unanimous 10 is a flag to double check, not the goal). Then real people try it, and where they disagree
+with the AI reviewers, the people win.
 
 ![An example report: the score trend, each journey against last round, and before and after screens](docs/sample-report.png)
 

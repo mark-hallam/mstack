@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """mStack multi-evaluator loop: one command line tool for people and agents.
 
-Rounds of independent review until every journey scores 10 out of 10. Python 3.9 or later, standard
-library only. Every command takes --dir, the review folder that holds mstack-eval.json (default: the
+Rounds of independent review until the product is ready for real people: every journey 9 or better from
+every reviewer, no high-severity fix open, reviewers within a point, held for two rounds (readiness.py).
+Python 3.9 or later, standard library only. Every command takes --dir, the review folder that holds mstack-eval.json (default: the
 current folder), and every command that reports state can print JSON with --json.
 
   init         write a starter mstack-eval.json (and the review folder) to fill in
@@ -18,7 +19,7 @@ current folder), and every command that reports state can print JSON with --json
   notify       send a test notification through the configured notify command
 
 Typical round:  start-round, edit changes.md, capture, brief, review (and your own agent's reviewer,
-then verdict), report. Repeat until status says every reviewer gives every journey 10.
+then verdict), report. Repeat until status says "ready for people".
 """
 import argparse
 import json
@@ -37,6 +38,9 @@ import urllib.error
 import urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+import readiness  # noqa: E402  (the stopping rule, the noise check and "do these next")
+
 SKILL = os.path.dirname(HERE)
 CONFIG_NAME = "mstack-eval.json"
 DRIVER = os.path.join(HERE, "drive.mjs")
@@ -304,54 +308,8 @@ def say(args, data, text=None):
         print(text if text is not None else "\n".join("%s: %s" % (k, v) for k, v in data.items()))
 
 
-def round_state(p, n):
-    v = p.verdicts(n)
-    want = [r["id"] for r in p.reviewers()]
-    jids = [j["id"] for j in p.journeys()]
-    scores = dict((who, dict((j["id"], j.get("score")) for j in d.get("journeys", []))) for who, d in v.items())
-    briefs = p.rdir(n, "briefs")
-    return {
-        "round": n,
-        "shots": len(p.shots(n)),
-        "briefs": sorted(f[:-3] for f in os.listdir(briefs) if f.endswith(".md")) if os.path.isdir(briefs) else [],
-        "verdicts": sorted(v),
-        "missing_verdicts": [w for w in want if w not in v],
-        "overall": dict((who, d.get("overall")) for who, d in v.items()),
-        "scores": scores,
-        "all_ten": bool(want) and all(w in v for w in want) and all(
-            scores.get(w, {}).get(j) == 10 for w in want for j in jids),
-    }
-
-
-def next_step(p):
-    n = p.latest()
-    if not p.journeys():
-        return "Add journeys (and views) to %s" % os.path.join(p.dir, CONFIG_NAME)
-    if n is None:
-        return "start-round (round 1 is the starting point)"
-    st = round_state(p, n)
-    if st["shots"] == 0 and p.views():
-        return "capture --round %d" % n
-    if len(st["briefs"]) < len(p.reviewers()):
-        return "brief --round %d" % n
-    if st["missing_verdicts"]:
-        parts = []
-        for rid in st["missing_verdicts"]:
-            r = p.reviewer(rid) or {}
-            if r.get("kind") == "command":
-                parts.append("review --round %d --only %s" % (n, rid))
-            else:
-                parts.append("give %s to a fresh %s reviewer, then: verdict --round %d --reviewer %s <reply.json>" % (
-                    p.rdir(n, "briefs", rid + ".md"), r.get("name", rid), n, rid))
-        return "; ".join(parts)
-    report = os.path.join(p.dir, "report.html")
-    newest = max(os.path.getmtime(os.path.join(p.rdir(n, "verdicts"), f)) for f in os.listdir(p.rdir(n, "verdicts")))
-    if not os.path.exists(report) or os.path.getmtime(report) < newest:
-        return "report"
-    if st["all_ten"]:
-        return ("done: every reviewer gives every journey 10. Now test with real first-time people "
-                "(record what happened in rounds/r%d/people.md); where they disagree with the AI reviewers, the people win." % n)
-    return "fix the reviewers' proposals in the product, then start-round"
+round_state = readiness.round_state
+next_step = readiness.next_step
 
 
 def cmd_status(args):
@@ -595,15 +553,23 @@ def check_verdict(p, v, rid=None, n=None):
             continue
         jid = j.get("id")
         seen.add(jid)
+        fixes = j.get("fixes", []) or []
         if not num(j.get("score")):
             probs.append("journey %s: score must be a number from 0 to 10." % jid)
         if not num(j.get("if_fixed")):
-            probs.append("journey %s: if_fixed must be a number from 0 to 10." % jid)
-        for f in j.get("fixes", []) or []:
+            probs.append("journey %s: if_fixed must be a number from 0 to 10 (the score if your fixes were made)." % jid)
+        elif num(j.get("score")) and j["if_fixed"] < j["score"]:
+            probs.append("journey %s: if_fixed (%s) cannot be below the score (%s)." % (jid, j["if_fixed"], j["score"]))
+        if j.get("score") == 10 and fixes:
+            probs.append("journey %s: a 10 means nothing is left to improve, but %d fix%s proposed; lower the score or drop the fixes."
+                         % (jid, len(fixes), " is" if len(fixes) == 1 else "es are"))
+        for f in fixes:
             if not isinstance(f, dict) or f.get("severity") not in SEVERITIES or not f.get("fix"):
                 probs.append("journey %s: each fix needs a severity (high, medium or low) and a fix." % jid)
                 break
     missing = [j["id"] for j in p.journeys() if j["id"] not in seen]
+    if p.cfg.get("control") and readiness.CONTROL not in seen:
+        missing.append(readiness.CONTROL)
     if missing:
         probs.append("journeys not scored: %s." % ", ".join(str(m) for m in missing))
     for k in ("top_fixes", "broken"):

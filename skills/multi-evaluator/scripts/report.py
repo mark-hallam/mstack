@@ -10,6 +10,10 @@ import html
 import json
 import os
 import re
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import readiness  # noqa: E402
 
 PALETTE = ["#C15F3C", "#1f6feb", "#1f7a35", "#8e44ad", "#b7791f", "#0f766e"]
 
@@ -241,6 +245,7 @@ h4{font-size:14px;margin:0 0 8px}.sub{color:var(--sub)}.small{font-size:13px}
 .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:14px}.kpis .card{margin:0}
 .kpi b{display:block;font-size:30px;letter-spacing:-.02em}
 .banner{background:var(--card);border-left:4px solid var(--up);border-radius:12px;padding:14px 18px;margin-top:16px}
+.banner.warn{border-left-color:#b7791f}
 svg{width:100%;max-width:760px;height:auto;display:block}svg .grid{stroke:var(--rule)}svg .target{stroke:var(--up);stroke-dasharray:5 5}
 svg text{font:12px -apple-system,sans-serif;fill:var(--sub)}svg .tl{fill:var(--up);text-anchor:start}svg .ax{text-anchor:end}svg .mid{text-anchor:middle}
 svg .lab{font-weight:700;font-size:13px;paint-order:stroke;stroke:var(--card);stroke-width:4px}
@@ -278,19 +283,31 @@ def build(p):
     all_scores = [j.get("score") for v in cur["verdicts"].values() for j in v.get("journeys", [])
                   if isinstance(j.get("score"), (int, float))]
     lowest = min(all_scores) if all_scores else None
-    want = [r["id"] for r in p.reviewers()]
-    done = bool(want) and all(w in cur["verdicts"] for w in want) and all(
-        journey_score(cur, w, j["id"]) == 10 for w in want for j in p.journeys())
+    rp = readiness.ready_for_people(p)
+    done = rp["ready"]
+    latest = rp["latest"] or {}
     avg = round(sum(scored) / len(scored), 1) if scored else None
     kpis = ("<div class='kpis'><div class='card kpi'><span class='small sub'>Round</span><b>%d</b></div>"
             "<div class='card kpi'><span class='small sub'>Average overall</span><b>%s</b></div>"
             "<div class='card kpi'><span class='small sub'>Lowest journey score</span><b>%s</b></div>"
-            "<div class='card kpi'><span class='small sub'>Target, every journey</span><b>10</b></div></div>") % (
-        cur["n"], avg if avg is not None else "waiting", lowest if lowest is not None else "waiting")
+            "<div class='card kpi'><span class='small sub'>Ready for people</span><b>%s</b></div></div>") % (
+        cur["n"], avg if avg is not None else "waiting", lowest if lowest is not None else "waiting",
+        "yes" if done else ("%d of %d rounds" % (rp["rounds_held"], rp["rounds_needed"])))
     banner = ""
     if done:
-        banner = ("<div class='banner'><b>Every reviewer gives every journey 10.</b> Now test with real first-time people. "
-                  "Where they disagree with the AI reviewers, the people win.</div>")
+        banner = ("<div class='banner'><b>Ready for people.</b> Every journey is %d or better from every reviewer, no "
+                  "high-severity fix is open, the reviewers agree within %d, and it has held for %d rounds. Now five "
+                  "first-time people try the journeys. Where they disagree with the AI reviewers, the people win.</div>"
+                  % (readiness.READY_SCORE, readiness.READY_SPREAD, readiness.READY_ROUNDS))
+    elif latest.get("ready"):
+        banner = ("<div class='banner'><b>This round passes the stopping rule.</b> Change nothing big and run one more "
+                  "round so it holds for %d rounds in a row.</div>" % readiness.READY_ROUNDS)
+    elif latest.get("reasons"):
+        banner = "<div class='banner warn'><b>Not ready for people yet:</b> %s.</div>" % esc("; ".join(latest["reasons"]))
+    if latest.get("unanimous_ten"):
+        banner += ("<div class='banner warn'><b>Every reviewer gave every journey 10.</b> Treat that as a flag to double "
+                   "check the brief and the journeys, not as a finish line: a perfect score from a model judge is more "
+                   "often a sign the bar moved than that nothing is left.</div>")
     people = ""
     if cur["people"].strip():
         people = "<h2>Real people</h2><div class='card'>%s</div>" % md_list(cur["people"])
@@ -300,10 +317,11 @@ def build(p):
     page = ("<!doctype html><html lang='en'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,"
             "initial-scale=1'><meta name='color-scheme' content='light dark'><title>%s</title><style>%s</style></head>"
             "<body><div class='wrap'><p class='small sub'>%s, independent design review%s</p>"
-            "<h1>Every round, before and after, until every journey scores 10</h1>"
+            "<h1>Every round, before and after, until it is ready for people</h1>"
             "<p class='sub'>%s run every journey in a real browser each round, each in fresh context, and score it out of "
-            "10. The same screens are captured the same way every round, so before and after compare like for like. "
-            "AI scores are a strong signal, not proof: real first-time people are the final test.</p>%s%s"
+            "10 (9 or better from everyone, agreeing within a point, with no high-severity fix open, two rounds running, "
+            "means ready). The same screens are captured the same way every round, so before and after compare like "
+            "for like. AI scores are a strong signal, not proof: real first-time people are the final test.</p>%s%s"
             "<h2>Score trend</h2><div class='card'>%s</div>"
             "<h2>Each journey, this round against the last</h2><div class='card'>%s</div>"
             "<h2>What changed going into round %d</h2><div class='card'>%s</div>"
@@ -319,7 +337,7 @@ def build(p):
     with open(path, "w", encoding="utf-8") as fh:
         fh.write(page)
     if done:
-        summary = "%s round %d: every reviewer gives every journey 10. Time for real people." % (p.name, cur["n"])
+        summary = "%s round %d: ready for people (9 or better from every reviewer, held two rounds). Time for real people." % (p.name, cur["n"])
     else:
         summary = "%s round %d report ready: average %s, lowest journey %s." % (
             p.name, cur["n"], avg if avg is not None else "waiting", lowest if lowest is not None else "waiting")

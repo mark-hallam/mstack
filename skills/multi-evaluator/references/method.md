@@ -13,8 +13,9 @@
 4. **A report every round**: one self-contained HTML page with the score trend toward 10, each journey
    now against last round and if fixed, what changed, what the reviewers propose, before and after
    screenshots per screen, and a filmstrip of every round.
-5. **Fix, then repeat** until every reviewer gives every journey 10. Then test with real people: where
-   they disagree with the AI reviewers, the real people win. AI scores are a strong signal, not proof.
+5. **Fix, then repeat** until the product is ready for people (the stopping rule below). Then test with
+   real people: where they disagree with the AI reviewers, the real people win. AI scores are a strong
+   signal, not proof.
 6. **Tell the person** when a round needs them: the light theme screenshots, the report, and a phone
    notification.
 
@@ -53,8 +54,25 @@ that round, and the report shows which criteria each round used.
 - **Stage 4, real people**: five first-time users complete the journeys unaided; their time, stumbles and
   words are recorded and compared with the AI scores. Where they disagree, the people win.
 
-## When to stop
+## When to stop: the stopping rule
 
-When every reviewer gives every journey 10 under every criterion in force, and real people agree. If the
-reviewers plateau below 10 for two rounds, look at whether the journeys or criteria ask for something the
-product should not do, and talk to the person before changing them.
+"Ready for people" means all of this at once, and for two rounds in a row:
+
+- every journey scores 9 or better from every counting reviewer (a web chat reviewer that only saw
+  screenshots does not count);
+- no high-severity fix is open;
+- the reviewers are within 1 point of each other on every journey;
+- it held last round too, so one lucky round does not end the loop.
+
+Then five real first-time people try the journeys, and they have the last word.
+
+Why not "every reviewer gives every journey 10"? In practice no journey reaches a unanimous 10: model
+judges have a ceiling around 9, one run of a judge moves a point or two on an unchanged product (see the
+noise check), and a perfect score from a proxy is more often a sign that the bar moved than that nothing
+is left. So a unanimous 10 is shown as a flag to double check the brief and the journeys, not as the
+finish. The tool also refuses a 10 that still proposes fixes, and an "if fixed" below the score, so both
+numbers keep their meaning.
+
+If the loop reaches `max_rounds` (default 6) without being ready, stop and talk to the person: the
+journeys or criteria may ask for something the product should not do. Late rounds tend to drift into
+generic advice; a round cap keeps the loop honest.

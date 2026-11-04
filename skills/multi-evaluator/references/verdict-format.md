@@ -19,8 +19,8 @@ Every reviewer replies with JSON only. `eval_loop.py verdict` and `eval_loop.py 
 |---|---|
 | `reviewer`, `round` | Must match the reviewer and round being saved (filled in if left out). |
 | `journeys` | Every journey in the config, each with `id`, `score` and `if_fixed`. |
-| `score` | 0 to 10. A 10 means the reviewer could not find anything to improve, against every criterion in force. |
-| `if_fixed` | 0 to 10: the score this journey would get if this reviewer's fixes for it were made. |
+| `score` | 0 to 10. A 10 means the reviewer could not find anything to improve, against every criterion in force, so a 10 with fixes is refused. 9 or better from everyone, agreeing within a point, is the bar for "ready for people". |
+| `if_fixed` | 0 to 10: the score this journey would get if this reviewer's fixes for it were made. Required, and never below `score`. |
 | `fixes` | Each with `severity` (`high`, `medium` or `low`), `where`, `problem` and `fix`. |
 | `overall` | 0 to 10. |
 | `top_fixes` | The five changes that would raise the scores most. |

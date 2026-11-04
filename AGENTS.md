@@ -15,7 +15,7 @@ The person never has to name a skill. When a skill's moment comes, read its `SKI
 |---|---|---|
 | ping-me | You need the person's decision or input, or a task they asked for is complete or blocked. On by default: notify them without being asked. | `skills/ping-me/SKILL.md` |
 | outcome-first | Any task bigger than a few steps: pin the outcome, ask every question in one batch with defaults, run to a verified outcome. | `skills/outcome-first/SKILL.md` |
-| multi-evaluator | Someone wants a product's design reviewed and improved in rounds until every journey scores 10 out of 10 from independent AI reviewers. | `skills/multi-evaluator/SKILL.md` |
+| multi-evaluator | Someone wants a product's design reviewed and improved in rounds by independent AI reviewers from different makers until it is ready for real people (every journey 9 or better, reviewers agreeing, no high fix open, two rounds running). | `skills/multi-evaluator/SKILL.md` |
 | away-mode | You are about to present a file, report, mockup, screenshot or link, or the person says they are on their phone, away, out or back. Notice when they are away and deliver phone-readable copies (PNG, PDF, files in the chat, key points in the reply). On by default. | `skills/away-mode/SKILL.md` |
 | mstack | The person switches a skill off or on, asks to "review my skills", or an mStack skill finishes (record how it went). | `skills/mstack/SKILL.md` |
 

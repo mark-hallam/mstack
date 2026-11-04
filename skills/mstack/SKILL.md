@@ -18,7 +18,7 @@ The shared tool is `scripts/mstack.py` (next to this file). Below, `MSTACK` mean
 |---|---|---|
 | ping-me | You need the person's decision or input, or a task they asked for is complete or blocked. | On |
 | outcome-first | Any task bigger than a few steps: pin the outcome, ask every question in one batch, then run to a verified outcome without further input. | On |
-| multi-evaluator | Someone wants a product's design reviewed and improved in rounds until every journey scores 10 out of 10 from independent AI reviewers. | On |
+| multi-evaluator | Someone wants a product's design reviewed and improved in rounds by independent AI reviewers from different makers until it is ready for real people (every journey 9 or better, reviewers agreeing, no high fix open, two rounds running). | On |
 | away-mode | You are about to present a file, report, mockup, screenshot or link, or the person says they are on their phone, away, out or back: notice when they are away and deliver phone-readable copies (PNG, PDF, files in the chat, key points in the reply). | On |
 
 `MSTACK skills` prints the same list with each skill's state. Read a skill's `SKILL.md` when it switches on.
