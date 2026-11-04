@@ -13,7 +13,7 @@ work up after a restart. Every command takes --json.
   ready <slug>                             the tasks that can run now, in parallel
   ask <slug> "<question>" [--default ...] [--why ...]   queue a decision that is genuinely the person's
   questions <slug>                         the open questions, to ask in one batch
-  answer <slug> <q-id> "<answer>"
+  answer <slug> <q-id> "<answer>"          or: answer <slug> --defaults (nobody can answer: take the defaults, noted)
   note <slug> "<progress note>"
   check <slug>                             run every done check; achieved only when all pass with evidence
   verify <slug> <d-id> --evidence "..."    record evidence for a done check that has no command
@@ -247,6 +247,21 @@ def cmd_questions(args):
 
 def cmd_answer(args):
     o = load(args.slug)
+    if args.defaults:
+        taken = []
+        for q in open_questions(o):
+            if q.get("default"):
+                q["answer"] = "%s (the default; nobody could answer, so it was taken and noted)" % q["default"]
+                taken.append(q["id"])
+        o["log"].append({"at": now(), "text": "Nobody could answer %s: the defaults were taken (%s)." % (
+            ", ".join(taken) or "the questions", ", ".join(taken) or "none had a default")})
+        save(o)
+        left = [q["id"] for q in open_questions(o)]
+        out(args, dict(summary(o), taken=taken, still_open=left),
+            "took the defaults for %s%s" % (", ".join(taken) or "nothing", "; still open (no default): %s" % ", ".join(left) if left else ""))
+        return
+    if not args.qid or args.answer is None:
+        raise SystemExit("answer needs a question id and an answer, or --defaults.")
     q = next((q for q in o["questions"] if q["id"] == args.qid), None)
     if not q:
         raise SystemExit("No question %r" % args.qid)
@@ -278,15 +293,20 @@ def cmd_check(args):
                 d["result"], d["evidence"] = "fail", "`%s` timed out after %ss" % (d["command"], args.timeout)
     tasks_done = all(t["state"] == "done" for t in o["tasks"])
     checks_pass = all(d.get("result") == "pass" and d.get("evidence") for d in o["done"])
-    o["achieved"] = bool(tasks_done and checks_pass)
+    open_qs = [q["id"] for q in open_questions(o)]
+    o["achieved"] = bool(tasks_done and checks_pass and not open_qs)
     o["log"].append({"at": now(), "text": "Checked: %s" % ("achieved" if o["achieved"] else "not yet")})
-    save(o)
+    save(o)                                                   # the progress file is always current after a check
     data = summary(o)
     data["achieved"] = o["achieved"]
     data["unfinished_tasks"] = [t["id"] for t in o["tasks"] if t["state"] != "done"]
-    out(args, data, "%s\n%s" % ("ACHIEVED: every done check passed with evidence." if o["achieved"] else "Not yet.",
-                                "\n".join("%s %s: %s" % (d["id"], d.get("result") or "no evidence yet", d["text"])
-                                          for d in o["done"])))
+    why = ""
+    if open_qs and tasks_done and checks_pass:
+        why = " A question for the person is still open (%s): answer it, or take the defaults (answer --defaults)." % ", ".join(open_qs)
+    out(args, data, "%s\n%s\nprogress file: %s" % (
+        "ACHIEVED: every done check passed with evidence and no question is open." if o["achieved"] else "Not yet." + why,
+        "\n".join("%s %s: %s" % (d["id"], d.get("result") or "no evidence yet", d["text"]) for d in o["done"]),
+        home(o["slug"], "progress.md")))
     sys.exit(0 if o["achieved"] else 1)
 
 
@@ -435,8 +455,9 @@ def main(argv=None):
     s.add_argument("slug")
     s = add("answer", cmd_answer)
     s.add_argument("slug")
-    s.add_argument("qid")
-    s.add_argument("answer")
+    s.add_argument("qid", nargs="?")
+    s.add_argument("answer", nargs="?")
+    s.add_argument("--defaults", action="store_true", help="nobody can answer: take every default and note it")
     s = add("note", cmd_note)
     s.add_argument("slug")
     s.add_argument("text")

@@ -39,7 +39,11 @@ accept every default.
 - Always include: "Is this what done looks like?", and "May I run unattended until it is done, including
   scheduling my own resume if a usage limit stops me? (default: yes)".
 
-Do not start the work until the person has answered or said "go".
+Do not start the work until the person has answered or said "go", **unless nobody can answer**: a headless
+run (`claude -p`, `codex exec`, a scheduled job) has no way to ask, and a person who said "just handle it,
+I'll be away" has already answered. Then take every default, write them into the progress file so they are
+visible (`OUTCOME answer <slug> --defaults`, after queueing the questions with `OUTCOME ask`), say so in
+the report, and carry on. Never invent an answer that has no default: queue it and leave it open.
 
 ## 3. Set up the durable plan
 
@@ -56,6 +60,10 @@ OUTCOME task add <slug> "Deploy" --after t1,t2
 This writes `~/.mstack/outcomes/<slug>/progress.md`, the one file anyone (you after a restart, another
 session, another agent, the person) reads to know exactly where things stand. Keep it current: mark tasks
 as you go, and add notes with `OUTCOME note`.
+
+**This step is not optional.** Work done under this skill without a progress file is not following it:
+there is no evidence trail, nothing to resume from, and no way for the person to see where things stand.
+Create the outcome before the first task starts, even for a run that asks no questions.
 
 ## 4. Run, in parallel
 
@@ -74,7 +82,8 @@ as you go, and add notes with `OUTCOME note`.
 
 `OUTCOME check <slug>` runs every done check that has a command and records the result as evidence. For a
 check with no command, look for yourself and record what you saw: `OUTCOME verify <slug> d3 --evidence "..."`.
-The outcome is achieved only when every task is done and every check passed with evidence, never on your
+The outcome is achieved only when every task is done, every check passed with evidence, and no question
+for the person is still open (`check` refuses otherwise: answer it, or take the defaults), never on your
 own say-so.
 
 Then report **once**: the outcome, the evidence for each done check, and anything left for the person. Ping

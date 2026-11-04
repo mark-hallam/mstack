@@ -76,7 +76,6 @@ def main():
               "questions queue up with defaults, to ask in one batch")
         run("answer", "notes", "q1", "Markdown")
         check(js("status", "notes")["open_questions"] == ["q2"], "answers close questions")
-        run("answer", "notes", "q2", "Tonight")
 
         s = js("check", "notes", expect=1)
         check(not s["achieved"] and s["unfinished_tasks"] == ["t3"], "not achieved while a task is unfinished")
@@ -88,9 +87,18 @@ def main():
         check(s["done_checks"][0]["result"] == "pass" and not s["achieved"],
               "a check with no command still needs evidence")
         run("verify", "notes", "d2", "--evidence", "Opened export.txt in TextEdit; both notes there.")
+        s = js("check", "notes", expect=1)
+        check(not s["achieved"] and s["open_questions"] == ["q2"], "not achieved while a question for the person is open")
+        check("still open (q2)" in run("check", "notes", expect=1), "check says which question is open and how to take the defaults")
+        js("ask", "notes", "Name of the release?")
+        s = js("answer", "notes", "--defaults")
+        check(s["taken"] == ["q2"] and s["still_open"] == ["q3"], "answer --defaults takes the defaults and leaves questions without one open")
+        check("the default; nobody could answer" in open(s["progress_file"]).read(), "the taken defaults are visible in the progress file")
+        run("answer", "notes", "q3", "v1")
         s = js("check", "notes")
         check(s["achieved"] and s["state"] == "achieved" and "Report once" in s["next"],
-              "achieved only when every task is done and every check has evidence")
+              "achieved only when every task is done, every check has evidence and no question is open")
+        check("progress file:" in run("check", "notes"), "check names the progress file")
         md = open(s["progress_file"]).read()
         check("State: **achieved**" in md and "[x] d1" in md and "Evidence:" in md, "the progress file shows the evidence")
 
