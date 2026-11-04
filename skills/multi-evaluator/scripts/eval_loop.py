@@ -574,6 +574,9 @@ def save_verdict(p, n, rid, v):
     v.setdefault("round", n)
     v.setdefault("top_fixes", [])
     v.setdefault("broken", [])
+    r = p.reviewer(rid) or {}
+    v["via"] = r.get("kind", "agent")
+    v["saw"] = "live" if r.get("kind") != "chat" or briefs.public_url(p) else "screenshots"
     os.makedirs(p.rdir(n, "verdicts"), exist_ok=True)
     path = p.rdir(n, "verdicts", rid + ".json")
     with open(path, "w", encoding="utf-8") as fh:
@@ -650,9 +653,12 @@ def cmd_review(args):
             chrome.kill()
             shutil.rmtree(work, ignore_errors=True)
     for r in agents:
-        results[r["id"]] = {"ok": None, "waiting": "your agent runs this reviewer: give it %s in fresh context, then "
-                                                   "run verdict --round %d --reviewer %s <reply>" % (
-                                                       p.rdir(n, "briefs", r["id"] + ".md"), n, r["id"])}
+        if r.get("kind") == "chat":
+            results[r["id"]] = {"ok": None, "waiting": chat_instructions(p, n, r)}
+        else:
+            results[r["id"]] = {"ok": None, "waiting": "your agent runs this reviewer: give it %s in fresh context, then "
+                                                       "run verdict --round %d --reviewer %s <reply>" % (
+                                                           p.rdir(n, "briefs", r["id"] + ".md"), n, r["id"])}
     if args.json:
         print(json.dumps({"round": n, "results": results}, indent=2))
     else:
@@ -665,6 +671,21 @@ def cmd_review(args):
                 print("%s: FAILED, %s" % (rid, res["problem"]))
     if any(res.get("ok") is False for res in results.values()):
         sys.exit(1)
+
+
+def chat_instructions(p, n, r):
+    """What the agent does for a web chat reviewer: the person's own signed-in browser, a new private chat,
+    nothing uploaded without their yes."""
+    url = briefs.public_url(p)
+    shots = ", ".join("%s.png" % s for s in p.shots(n)) or "the fixed screens"
+    return ("a web chat reviewer, opt in: with the person's yes on what may be shared, open a new private (temporary) "
+            "chat with %s%s in their own signed-in browser, paste %s%s, wait for the reply, save it to a file, close "
+            "the tab, then run verdict --round %d --reviewer %s <reply>. It %s, so it is a tie breaker and never counts "
+            "toward ready for people." % (
+                r.get("name", r["id"]), " at %s" % r["url"] if r.get("url") else "", p.rdir(n, "briefs", r["id"] + ".md"),
+                "" if url else " and upload %s from %s (the person decides whether those screens may go to a third party)" % (
+                    shots, p.rdir(n, "shots")),
+                n, r["id"], "sees the public address and the screens" if url else "sees only screenshots"))
 
 
 def read_input(path):

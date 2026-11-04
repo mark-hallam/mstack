@@ -73,7 +73,8 @@ def config(site):
         "reviewers": [
             {"id": "stand-in", "name": "Stand-in A", "kind": "command", "colour": "#C15F3C",
              "command": [sys.executable, STAND_IN, "--id", "stand-in", "--round", "{round}", "--work", "{work}"]},
-            {"id": "second", "name": "Stand-in B", "kind": "agent", "colour": "#1f6feb"}],
+            {"id": "second", "name": "Stand-in B", "kind": "agent", "colour": "#1f6feb"},
+            {"id": "chat", "name": "Stand-in C", "kind": "chat", "url": "https://chat.example", "colour": "#555"}],
     }
 
 
@@ -137,19 +138,32 @@ def main():
             status = json.loads(run(review, "status", "--json"))
             check("review" in status["next"], "round %d: status says to run the reviewers" % n)
             run(review, "review", "--only", "stand-in")
+            cb = open(os.path.join(review, "rounds", "r%d" % n, "briefs", "chat.md")).read()
+            check("You cannot open the product yourself" in cb and "home-phone.png" in cb and "serve --dir" not in cb,
+                  "round %d: the web chat reviewer's brief is paste-ready and says it sees only screenshots" % n)
+            rev = json.loads(run(review, "review", "--only", "chat", "--json"))["results"]["chat"]
+            check(rev["ok"] is None and "new private (temporary) chat" in rev["waiting"] and "chat.example" in rev["waiting"]
+                  and "never counts toward ready" in rev["waiting"], "round %d: review says how to run the chat reviewer, opt in" % n)
+            chat_v = json.loads(agent_verdict(n))
+            chat_v.update(reviewer="chat", overall=5)
+            for j in chat_v["journeys"]:
+                j.update(score=5, if_fixed=6, fixes=[{"severity": "low", "where": "Home", "problem": "x", "fix": "y"}])
+            run(review, "verdict", "--reviewer", "chat", "-", stdin=json.dumps(chat_v))
+            saved = json.load(open(os.path.join(review, "rounds", "r%d" % n, "verdicts", "chat.json")))
+            check(saved["via"] == "chat" and saved["saw"] == "screenshots", "round %d: the chat verdict records what it saw" % n)
             if n > 1:
                 run(review, "verdict", "--reviewer", "second", "--compare", "-", expect=1,
                     stdin=json.dumps({"compare": {"improved": ["x"]}}))
                 check(True, "round %d: a comparison cannot be saved before the verdict" % n)
             run(review, "verdict", "--reviewer", "second", "-", stdin=agent_verdict(n))
-            check(sorted(os.listdir(os.path.join(review, "rounds", "r%d" % n, "verdicts"))) == ["second.json", "stand-in.json"],
-                  "round %d: both verdicts saved" % n)
+            check(sorted(os.listdir(os.path.join(review, "rounds", "r%d" % n, "verdicts"))) == ["chat.json", "second.json", "stand-in.json"],
+                  "round %d: every verdict saved" % n)
             if n > 1:
                 run(review, "verdict", "--reviewer", "second", "--compare", "-",
                     stdin=json.dumps({"compare": {"improved": ["Plain words on the buttons."], "regressed": [], "unchanged": []}}))
                 vfiles = sorted(os.listdir(os.path.join(review, "rounds", "r%d" % n, "verdicts")))
-                check(vfiles == ["second.compare.json", "second.json", "stand-in.json"], "round %d: the comparison is saved apart" % n)
-                check(json.loads(run(review, "status", "--json"))["rounds"][-1]["verdicts"] == ["second", "stand-in"],
+                check(vfiles == ["chat.json", "second.compare.json", "second.json", "stand-in.json"], "round %d: the comparison is saved apart" % n)
+                check(json.loads(run(review, "status", "--json"))["rounds"][-1]["verdicts"] == ["chat", "second", "stand-in"],
                       "round %d: the comparison is not counted as a verdict" % n)
             run(review, "report", "--no-notify")
             if n == 1:
@@ -161,15 +175,17 @@ def main():
         check(shots(1) != shots(2) != shots(3), "each round's screenshots differ")
         page = open(os.path.join(review, "report.html"), encoding="utf-8").read()
         check("<svg" in page and "Target 10" in page, "the report has the score trend")
-        check("Stand-in A" in page and "Stand-in B" in page, "the report names both reviewers")
+        check("Stand-in A" in page and "Stand-in B" in page and "Stand-in C" in page, "the report names every reviewer")
         check("Before (round 2)" in page and "After (round 3)" in page, "the report has before and after captions")
         check(len(re.findall(r"src='data:image/jpeg;base64,", page)) >= 6 + 9, "the report embeds before, after and filmstrip images")
         check("Every round" in page, "the report has the filmstrip")
         check("compared it with last round" in page and "Plain words on the buttons." in page, "the report shows the comparison pass")
         check("The noise check" in page and "within noise" in page, "the report shows the noise band and marks changes within it")
-        check("No fixes proposed this round" in page and ">agree<" in page, "round 3: nothing to do next, and the reviewers agree")
+        check("Do these next" in page and "<span class='sev low'>" in page and ">agree<" in page,
+              "round 3: only the chat reviewer's low fixes are left to do next, and the counting reviewers agree")
         noise = readiness.control_noise(eval_loop.Project(review))
-        check(noise["per_reviewer"] == {"second": 0, "stand-in": 1} and noise["band"] == 1, "the control's movement is measured per reviewer")
+        check(noise["per_reviewer"] == {"chat": 0, "second": 0, "stand-in": 1} and noise["band"] == 1,
+              "the control's movement is measured per reviewer")
         no_control = json.dumps({"reviewer": "second", "round": 3, "overall": 9, "journeys": [
             {"id": 1, "score": 9, "if_fixed": 9}, {"id": 2, "score": 9, "if_fixed": 9}]})
         probs = json.loads(run(review, "validate", "-", "--json", expect=1, stdin=no_control))["problems"]
@@ -188,7 +204,16 @@ def main():
         probs = json.loads(run(review, "validate", "-", "--json", expect=1, stdin=ten_with_fix))["problems"]
         check(any("a 10 means nothing is left" in x for x in probs) and any("cannot be below the score" in x for x in probs),
               "validate refuses a 10 with fixes and an if_fixed below the score")
-        check(status["rounds"][-1]["overall"] == {"second": 10, "stand-in": 9}, "status reports the latest scores")
+        check(status["rounds"][-1]["overall"] == {"chat": 5, "second": 10, "stand-in": 9}, "status reports the latest scores")
+        check(status["rounds"][-1]["ready"] and not status["rounds"][-1]["disagreements"],
+              "the chat reviewer's low score does not count toward the stopping rule")
+        check("web chat, from screenshots; a tie breaker" in page, "the report labels the chat reviewer")
+        all_chat = json.load(open(os.path.join(review, "mstack-eval.json")))
+        all_chat["reviewers"] = [r for r in all_chat["reviewers"] if r["kind"] == "chat"]
+        json.dump(all_chat, open(os.path.join(review, "mstack-eval.json"), "w"))
+        run(review, "brief", expect=1)
+        check(True, "a chat reviewer can never be the only reviewer")
+        json.dump(config(os.path.join(SAMPLE, "round-3")), open(os.path.join(review, "mstack-eval.json"), "w"), indent=2)
         bad = json.dumps({"reviewer": "second", "round": 3, "overall": 11, "journeys": [{"id": 1, "score": 5}]})
         out = run(review, "validate", "-", "--json", expect=1, stdin=bad)
         probs = json.loads(out)["problems"]

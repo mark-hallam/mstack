@@ -66,6 +66,11 @@ At the same time, run every reviewer whose `kind` is `agent` yourself, in **fres
 - Claude Code: start a subagent (the Agent tool, general purpose) whose prompt is the full text of
   `rounds/r<N>/briefs/claude.md`. Do not add your own opinions, the expected answer or earlier scores.
 - Any other agent: open a new session or thread with the brief as the only instruction.
+- A reviewer of `kind: "chat"` (optional, opt in: Grok, ChatGPT or Gemini in the person's own signed-in
+  browser, no API key): only with the person's yes on what may be shared, open a new private chat, paste
+  `rounds/r<N>/briefs/<id>.md`, upload this round's fixed screens if the product is not public, save the
+  reply, close the tab, then `verdict`. It sees screenshots, not the live product, so it is a tie breaker:
+  it never counts toward "ready for people" and can never be the only reviewer.
 
 When it replies, save its JSON (the tool checks it and refuses a reply that does not fit the format):
 

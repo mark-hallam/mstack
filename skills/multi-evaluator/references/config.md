@@ -97,6 +97,22 @@ Other command reviewers work the same way, for example Claude Code without the a
 `["claude", "-p", "--allowedTools", "Bash,Read,Write"]`, or any agent with a non-interactive mode.
 Use at least two reviewers from different AI makers.
 
+### An optional third reviewer through a web chat (`kind: "chat"`)
+
+```json
+{"id": "grok", "name": "Grok", "maker": "xAI", "kind": "chat", "url": "https://grok.com", "colour": "#555"}
+```
+
+A reviewer the person already pays for, used in their own signed-in browser (Grok, ChatGPT, Gemini), with
+no API key. It is **opt in and never automatic**: the person names the chat and says what may be shared.
+`brief` writes it a paste-ready brief; `review` and `status` tell the agent to open a new private chat in
+the person's browser, paste the brief, upload this round's fixed screens if the product is not public,
+save the reply and run `verdict`. What it saw is recorded (`"saw": "live"` only when the target address is
+public; otherwise `"screenshots"`) and the report labels it. A chat reviewer cannot press a button and see
+what happens, so it is a tie breaker and a check on same-maker taste: it never counts toward "ready for
+people", and it can never be the only reviewer (`brief` refuses). Use the chat's private or temporary mode
+and close the tab after.
+
 ## `notify`
 
 Optional. A command run when a report is built, with `{message}` filled in, so a phone can buzz when a

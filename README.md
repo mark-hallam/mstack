@@ -49,7 +49,9 @@ it matures). Each round, the same screens are captured the same way; at least tw
 AI makers (by default Claude and Codex) each drive the real product in a real browser, in fresh context,
 and score every journey 0 to 10 with an "if fixed" score and specific fixes. You get one HTML page with
 the score trend, each journey against last round, the proposals, and before and after screenshots with a
-filmstrip of every round. The loop stops when it is ready for people: every journey 9 or better from every
+filmstrip of every round. An optional third reviewer can be a web chat you already pay for (Grok, ChatGPT,
+Gemini) in your own browser, as a tie breaker, only with your yes on what is shared. The loop stops when it
+is ready for people: every journey 9 or better from every
 reviewer, reviewers within a point of each other, no high-severity fix open, held for two rounds (a
 unanimous 10 is a flag to double check, not the goal). Then real people try it, and where they disagree
 with the AI reviewers, the people win.

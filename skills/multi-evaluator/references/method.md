@@ -25,6 +25,15 @@ Reviewers from the same maker tend to share blind spots and taste. Two from diff
 in useful ways: one notices a broken counter, the other notices the phone layout. Where they agree, the
 fix is almost certainly right. Where only one raises something, look at it yourself before acting.
 
+## A third maker through a web chat
+
+Heuristic evaluation practice uses three to five independent evaluators; two is the floor. A third can
+come at no extra cost from a chat the person already pays for (Grok, ChatGPT, Gemini), in their own
+browser, with no API key. Its limits are real: it sees only what is public or uploaded, it cannot press a
+button and see what happens, and uploading screenshots of a private product to a third party is the
+person's decision. So it is opt in, labelled in the report, used as a tie breaker and a check on
+same-maker taste, and never counted toward "ready for people".
+
 ## Why fresh context, blind first, compare second
 
 A reviewer who has seen the plan, the last scores, last round's screenshots, the design direction or the

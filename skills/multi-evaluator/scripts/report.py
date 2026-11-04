@@ -62,7 +62,11 @@ def load_round(p, n):
 def reviewer_info(p, rs):
     info, order = {}, []
     for i, r in enumerate(p.reviewers()):
-        info[r["id"]] = {"name": r.get("name", r["id"]), "colour": r.get("colour") or PALETTE[i % len(PALETTE)]}
+        name = r.get("name", r["id"])
+        if r.get("kind") == "chat":
+            saw = next((v.get("saw") for rr in rs for who, v in rr["verdicts"].items() if who == r["id"] and v.get("saw")), "screenshots")
+            name += " (web chat, from %s; a tie breaker)" % ("the public address" if saw == "live" else "screenshots")
+        info[r["id"]] = {"name": name, "colour": r.get("colour") or PALETTE[i % len(PALETTE)]}
         order.append(r["id"])
     for r in rs:
         for who in r["verdicts"]:
