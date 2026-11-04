@@ -2,7 +2,9 @@
 
 Every release of mStack, newest first. Dates are the day the release was made.
 
-## 0.4.0, unreleased
+## 0.4.0, 5 November 2026
+
+- away-mode: phone screenshots are now laid out at true phone width (390 css px). Headless Chrome will not lay a page out narrower than about 500 px, so earlier phone screenshots lost their right edge.
 
 ### New: crew
 
