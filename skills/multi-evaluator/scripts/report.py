@@ -137,6 +137,26 @@ def score_cell(cur, prev, label="", noise=0):
         lab, cur, cls, sign, round(d, 1) if d else "no change", prev, ", within noise" if within else "")
 
 
+def do_next(p, cur, order, info):
+    """The fixes to make next, ranked: both reviewers flagged the journey, then high severity, then the biggest
+    "if fixed" gap. Opens the report so a non-developer knows what to do without reading the rest."""
+    items = readiness.do_next(p, cur["n"])
+    if not items:
+        return ("<h2>Do these next</h2><div class='card'><p class='sub'>No fixes proposed this round. If the stopping rule "
+                "is met, it is time for real people; if not, see why under the score trend.</p></div>")
+    rows = []
+    for it in items:
+        who = info.get(it["reviewer"], {"name": it["reviewer"], "colour": "#888"})
+        rows.append("<li><span class='sev %s'>%s</span> %s<b>%s</b> (journey %s, <i class='dot' style='background:%s'></i>%s): "
+                    "%s <span class='sub'>%s</span></li>" % (
+                        esc(it["severity"]), esc(it["severity"]), "<span class='chip new'>both flagged</span> " if it["agreed"] else "",
+                        esc(it["where"] or "the product"), esc(it["journey"]), who["colour"], esc(who["name"]),
+                        esc(it["fix"]), ("Problem: " + esc(it["problem"])) if it["problem"] else ""))
+    return ("<h2>Do these next</h2><div class='card'><p class='small sub'>Ranked: fixes on a journey every reviewer "
+            "flagged first, then high severity, then the biggest \"if fixed\" gap.</p><ol class='fixes'>%s</ol></div>"
+            % "".join(rows))
+
+
 def journey_table(p, rs, order, info):
     cur, prev = rs[-1], rs[-2] if len(rs) > 1 else None
     names = dict((j["id"], j["name"]) for j in p.journeys())
@@ -146,6 +166,7 @@ def journey_table(p, rs, order, info):
                 if j.get("id") != readiness.CONTROL:
                     names.setdefault(j.get("id"), j.get("name", ""))
     noise = readiness.control_noise(p) or {"per_reviewer": {}}
+    disagree = readiness.round_check(p, cur["n"])["disagreements"]
     rows = []
     for jid in sorted(names, key=lambda k: (str(type(k)), k)):
         cells = []
@@ -158,12 +179,18 @@ def journey_table(p, rs, order, info):
         fixes = [f for v in cur["verdicts"].values() for j in v.get("journeys", []) if j.get("id") == jid
                  for f in j.get("fixes", []) or []]
         high = sum(1 for f in fixes if f.get("severity") == "high")
-        rows.append("<tr><th scope='row'>%s. %s</th>%s<td class='small' data-label='Fixes proposed'>%d proposed%s</td></tr>" % (
-            esc(jid), esc(names[jid]), "".join(cells), len(fixes), ", %d high" % high if high else ""))
+        gap = disagree.get(jid)
+        rows.append("<tr><th scope='row'>%s. %s</th>%s<td data-label='Reviewers disagree'>%s</td>"
+                    "<td class='small' data-label='Fixes proposed'>%d proposed%s</td></tr>" % (
+                        esc(jid), esc(names[jid]), "".join(cells),
+                        "<span class='down'>by %s</span>" % gap if gap else "<span class='same'>agree</span>",
+                        len(fixes), ", %d high" % high if high else ""))
     head = "".join("<th scope='col'><i class='dot' style='background:%s'></i>%s now</th><th scope='col'>%s if fixed</th>"
                    % (info[w]["colour"], esc(info[w]["name"]), esc(info[w]["name"])) for w in order)
-    return ("<table><thead><tr><th scope='col'>Journey</th>%s<th scope='col'>Fixes proposed this round</th></tr></thead>"
-            "<tbody>%s</tbody></table>") % (head, "".join(rows))
+    return ("<table><thead><tr><th scope='col'>Journey</th>%s<th scope='col'>Reviewers disagree (2 or more)</th>"
+            "<th scope='col'>Fixes proposed this round</th></tr></thead><tbody>%s</tbody></table>"
+            "<p class='small sub'>Where the reviewers disagree by 2 or more, look at the journey yourself before acting on "
+            "either score.</p>") % (head, "".join(rows))
 
 
 def fixes_detail(cur, order, info):
@@ -370,7 +397,7 @@ def build(p):
             "10 (9 or better from everyone, agreeing within a point, with no high-severity fix open, two rounds running, "
             "means ready). The same screens are captured the same way every round, so before and after compare like "
             "for like. AI scores are a strong signal, not proof: real first-time people are the final test.</p>%s%s"
-            "<h2>Score trend</h2><div class='card'>%s</div>"
+            "%s<h2>Score trend</h2><div class='card'>%s</div>"
             "<h2>Each journey, this round against the last</h2><div class='card'>%s</div>"
             "<h2>What changed going into round %d</h2><div class='card'>%s</div>%s"
             "%s<h2>What the reviewers propose next</h2>%s%s"
@@ -379,7 +406,7 @@ def build(p):
             "<h2>Before and after, screen by screen</h2>%s"
             "<p class='small sub'>Made with mStack's multi-evaluator skill.</p></div></body></html>") % (
         esc(title), CSS, esc(p.name), (". " + esc(note)) if note else "", esc(names), kpis, banner,
-        trend_svg(rs, order, info), journey_table(p, rs, order, info), cur["n"], md_list(cur["changes"]),
+        do_next(p, cur, order, info), trend_svg(rs, order, info), journey_table(p, rs, order, info), cur["n"], md_list(cur["changes"]),
         comparisons_html(p, cur["n"], order, info), noise_card(p, rs, order, info), proposals(cur, order, info), fixes_detail(cur, order, info), criteria_table(rs), people, before_after(p, rs))
     path = os.path.join(p.dir, "report.html")
     with open(path, "w", encoding="utf-8") as fh:

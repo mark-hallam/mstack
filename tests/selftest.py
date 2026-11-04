@@ -85,7 +85,7 @@ CHANGES = {
 
 
 def agent_verdict(n):
-    score = {1: 5, 2: 8, 3: 10}[n]
+    score = {1: 6, 2: 8, 3: 10}[n]
     return json.dumps({"reviewer": "second", "round": n, "overall": score, "top_fixes": [], "broken": [],
                        "journeys": [{"id": j, "name": "J%d" % j, "score": score, "if_fixed": 10, "what_worked": [],
                                      "fixes": []} for j in (1, 2)] + [
@@ -152,6 +152,11 @@ def main():
                 check(json.loads(run(review, "status", "--json"))["rounds"][-1]["verdicts"] == ["second", "stand-in"],
                       "round %d: the comparison is not counted as a verdict" % n)
             run(review, "report", "--no-notify")
+            if n == 1:
+                page1 = open(os.path.join(review, "report.html"), encoding="utf-8").read()
+                check("Do these next" in page1 and "Stand-in fix for round 1." in page1 and "<span class='sev high'>" in page1,
+                      "round 1: the report opens with the fixes to make next")
+                check(">by 2<" in page1, "round 1: the journey table shows where the reviewers disagree by 2 or more")
         shots = lambda n: open(os.path.join(review, "rounds", "r%d" % n, "shots", "home-desktop.png"), "rb").read()  # noqa: E731
         check(shots(1) != shots(2) != shots(3), "each round's screenshots differ")
         page = open(os.path.join(review, "report.html"), encoding="utf-8").read()
@@ -162,6 +167,7 @@ def main():
         check("Every round" in page, "the report has the filmstrip")
         check("compared it with last round" in page and "Plain words on the buttons." in page, "the report shows the comparison pass")
         check("The noise check" in page and "within noise" in page, "the report shows the noise band and marks changes within it")
+        check("No fixes proposed this round" in page and ">agree<" in page, "round 3: nothing to do next, and the reviewers agree")
         noise = readiness.control_noise(eval_loop.Project(review))
         check(noise["per_reviewer"] == {"second": 0, "stand-in": 1} and noise["band"] == 1, "the control's movement is measured per reviewer")
         no_control = json.dumps({"reviewer": "second", "round": 3, "overall": 9, "journeys": [

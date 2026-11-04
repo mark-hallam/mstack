@@ -92,7 +92,9 @@ loop needs a decision; the config's `notify` command can also send one (see `ref
 
 ## 3. Fix, then repeat
 
-1. Merge both reviewers' fixes: high severity first, then anything both reviewers raised.
+1. Start from the report's **Do these next** list (fixes on a journey every reviewer flagged first, then
+   high severity, then the biggest "if fixed" gap). Where the journey table says the reviewers disagree by
+   2 or more, look at that journey yourself before acting on either score.
 2. Make the fixes in the product, run its own tests, and write the next round's `changes.md`.
 3. `LOOP start-round`, and repeat until `LOOP status` says **ready for people** (the stopping rule above,
    held for two rounds). If a round passes, change nothing big and run one more so it holds. After
