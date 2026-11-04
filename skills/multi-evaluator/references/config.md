@@ -8,7 +8,8 @@ The review folder holds one `mstack-eval.json`. `eval_loop.py init` writes a sta
 | Field | What it is |
 |---|---|
 | `name` | The product's name, shown in briefs and the report. |
-| `about` | One short paragraph for reviewers who have never seen it: what it is, who it is for, what it promises, the design direction. |
+| `about` | One short paragraph for reviewers who have never seen it: what it is, who it is for, what it promises. Not the design direction: that goes in `rules`, so the scoring pass stays blind. |
+| `rules` | Optional list of constraints a fix must respect (the design direction, a locked brand, "no new pages"). Shown to reviewers as "not scored". |
 | `persona` | Who the reviewers judge as, finishing the sentence "Judge it as this person: ...". |
 | `note` | Optional line under the report's title (for example "Fictional demo data."). |
 

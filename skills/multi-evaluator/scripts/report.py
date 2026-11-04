@@ -22,6 +22,26 @@ def esc(s):
     return html.escape("" if s is None else str(s))
 
 
+def comparisons_html(p, n, order, info):
+    out = []
+    for who, c in p.comparisons(n).items():
+        cmp_ = c.get("compare", {})
+        parts = []
+        for key, label in (("improved", "Improved"), ("regressed", "Got worse"), ("unchanged", "Still in the way")):
+            items = cmp_.get(key) or []
+            if items:
+                parts.append("<p class='small sub'>%s</p><ul>%s</ul>" % (label, "".join("<li>%s</li>" % esc(i) for i in items)))
+        colour = info.get(who, {}).get("colour", "#888")
+        name = info.get(who, {}).get("name", who)
+        out.append("<div class='card'><h3><i class='dot' style='background:%s'></i>%s compared it with last round</h3>%s%s</div>" % (
+            colour, esc(name), "".join(parts) or "<p class='sub'>Nothing noted.</p>",
+            "<p class='small sub'>%s</p>" % esc(cmp_["note"]) if cmp_.get("note") else ""))
+    if not out:
+        return ""
+    return ("<p class='small sub'>A separate, labelled pass made after each verdict was saved; it never changes a score."
+            "</p><div class='two'>%s</div>" % "".join(out))
+
+
 def load_round(p, n):
     base = p.rdir(n)
 
@@ -324,7 +344,7 @@ def build(p):
             "for like. AI scores are a strong signal, not proof: real first-time people are the final test.</p>%s%s"
             "<h2>Score trend</h2><div class='card'>%s</div>"
             "<h2>Each journey, this round against the last</h2><div class='card'>%s</div>"
-            "<h2>What changed going into round %d</h2><div class='card'>%s</div>"
+            "<h2>What changed going into round %d</h2><div class='card'>%s</div>%s"
             "<h2>What the reviewers propose next</h2>%s%s"
             "<h2>The criteria each round used</h2><div class='card'><p class='small sub'>The floor, plus each stage "
             "added as the product matured (highlighted).</p>%s</div>%s"
@@ -332,7 +352,7 @@ def build(p):
             "<p class='small sub'>Made with mStack's multi-evaluator skill.</p></div></body></html>") % (
         esc(title), CSS, esc(p.name), (". " + esc(note)) if note else "", esc(names), kpis, banner,
         trend_svg(rs, order, info), journey_table(p, rs, order, info), cur["n"], md_list(cur["changes"]),
-        proposals(cur, order, info), fixes_detail(cur, order, info), criteria_table(rs), people, before_after(p, rs))
+        comparisons_html(p, cur["n"], order, info), proposals(cur, order, info), fixes_detail(cur, order, info), criteria_table(rs), people, before_after(p, rs))
     path = os.path.join(p.dir, "report.html")
     with open(path, "w", encoding="utf-8") as fh:
         fh.write(page)

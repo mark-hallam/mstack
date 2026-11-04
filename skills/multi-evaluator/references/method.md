@@ -25,10 +25,14 @@ Reviewers from the same maker tend to share blind spots and taste. Two from diff
 in useful ways: one notices a broken counter, the other notices the phone layout. Where they agree, the
 fix is almost certainly right. Where only one raises something, look at it yourself before acting.
 
-## Why fresh context and no expected answer
+## Why fresh context, blind first, compare second
 
-A reviewer who has seen the plan, the last scores or the other reviewer's verdict anchors on them. The
-brief gives only what a first-time user would know, plus the screens from last round to compare.
+A reviewer who has seen the plan, the last scores, last round's screenshots, the design direction or the
+other reviewer's verdict anchors on them: model judges pull toward prior scores and reference answers.
+So the scoring brief gives only what a first-time user would know, and this round's screens. Constraints
+a fix must respect (the config's `rules`) are listed apart and marked "not scored". The comparison with
+last round, which is useful for catching regressions, is a separate labelled pass given to the reviewer
+after its verdict is saved, and it never changes a score. The blind pass is the score of record.
 
 ## Why "if fixed"
 

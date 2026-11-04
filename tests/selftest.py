@@ -118,14 +118,32 @@ def main():
             check("serve --dir" in brief and "drive.mjs" in brief and "Reply format" in brief,
                   "round %d: the brief has set up, driver and reply format" % n)
             check(("Copy" in brief) == (n >= 3), "round %d: the criteria grow from round 3" % n)
+            check("r%d/shots" % (n - 1) not in brief and "not shown earlier rounds" in brief,
+                  "round %d: the scoring brief is blind to earlier rounds" % n)
+            cbrief = os.path.join(review, "rounds", "r%d" % n, "briefs", "stand-in-compare.md")
             if n > 1:
-                check("r%d/shots" % (n - 1) in brief, "round %d: the brief points at last round's screens" % n)
+                check(os.path.exists(cbrief) and "r%d/shots" % (n - 1) in open(cbrief).read()
+                      and "not the score of record" in open(cbrief).read(),
+                      "round %d: the separate comparison brief points at last round's screens" % n)
+            else:
+                check(not os.path.exists(cbrief), "round 1: no comparison brief")
             status = json.loads(run(review, "status", "--json"))
             check("review" in status["next"], "round %d: status says to run the reviewers" % n)
             run(review, "review", "--only", "stand-in")
+            if n > 1:
+                run(review, "verdict", "--reviewer", "second", "--compare", "-", expect=1,
+                    stdin=json.dumps({"compare": {"improved": ["x"]}}))
+                check(True, "round %d: a comparison cannot be saved before the verdict" % n)
             run(review, "verdict", "--reviewer", "second", "-", stdin=agent_verdict(n))
             check(sorted(os.listdir(os.path.join(review, "rounds", "r%d" % n, "verdicts"))) == ["second.json", "stand-in.json"],
                   "round %d: both verdicts saved" % n)
+            if n > 1:
+                run(review, "verdict", "--reviewer", "second", "--compare", "-",
+                    stdin=json.dumps({"compare": {"improved": ["Plain words on the buttons."], "regressed": [], "unchanged": []}}))
+                vfiles = sorted(os.listdir(os.path.join(review, "rounds", "r%d" % n, "verdicts")))
+                check(vfiles == ["second.compare.json", "second.json", "stand-in.json"], "round %d: the comparison is saved apart" % n)
+                check(json.loads(run(review, "status", "--json"))["rounds"][-1]["verdicts"] == ["second", "stand-in"],
+                      "round %d: the comparison is not counted as a verdict" % n)
             run(review, "report", "--no-notify")
         shots = lambda n: open(os.path.join(review, "rounds", "r%d" % n, "shots", "home-desktop.png"), "rb").read()  # noqa: E731
         check(shots(1) != shots(2) != shots(3), "each round's screenshots differ")
@@ -135,6 +153,7 @@ def main():
         check("Before (round 2)" in page and "After (round 3)" in page, "the report has before and after captions")
         check(len(re.findall(r"src='data:image/jpeg;base64,", page)) >= 6 + 9, "the report embeds before, after and filmstrip images")
         check("Every round" in page, "the report has the filmstrip")
+        check("compared it with last round" in page and "Plain words on the buttons." in page, "the report shows the comparison pass")
         check("if fixed" in page and "Add a book" in page, "the report has each journey with its if fixed score")
         check("The criteria each round used" in page and "chip new" in page, "the report shows the criteria grew")
         check("src='http" not in page and "<link" not in page, "the report is self-contained")

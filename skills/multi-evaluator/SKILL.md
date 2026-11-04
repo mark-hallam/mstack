@@ -35,7 +35,9 @@ Before any review, agree with the person what a real person must be able to do, 
 1. `LOOP init --dir design-review --name "<product>" --start "<command that starts it, with {port}>" --cwd <its folder>`
    (or `--url <address>` for something already running, such as a staging site).
 2. Fill in `design-review/mstack-eval.json` with the person. See `references/config.md` for every field:
-   - `about` and `persona`: what the product is and who judges it.
+   - `about` and `persona`: what the product is and who judges it. Keep the design direction and any
+     constraints out of `about` and in `rules`: they are shown to reviewers as "not scored", so the brief
+     never hands over the answer you hope to hear.
    - `journeys`: 3 to 6 real tasks, each end to end ("Add a book and see it in the list").
    - `views`: the fixed screens captured every round (desktop, phone, dark theme). Light theme first.
    - `criteria`: the floor is clear, quick, trust, familiar, calm, works everywhere. `stages` add more
@@ -52,7 +54,7 @@ Before any review, agree with the person what a real person must be able to do, 
 LOOP start-round --dir design-review          # opens rounds/r<N>/, snapshots this round's criteria
                                               # write rounds/r<N>/changes.md: what changed, one bullet each
 LOOP capture --dir design-review              # the same screens, captured the same way, every round
-LOOP brief --dir design-review                # one brief per reviewer in rounds/r<N>/briefs/
+LOOP brief --dir design-review                # blind scoring briefs in rounds/r<N>/briefs/, plus -compare briefs from round 2
 LOOP review --dir design-review               # runs command line reviewers (Codex) in parallel; run it in the background
 ```
 
@@ -66,8 +68,20 @@ When it replies, save its JSON (the tool checks it and refuses a reply that does
 
 ```
 LOOP verdict --dir design-review --reviewer claude reply.json      # or pipe the reply in with -
+```
+
+**Blind first, compare second.** The scoring brief shows this round only: no earlier screenshots, no
+earlier scores, no design direction, so the score means the same thing in round 1 and round 9. From round
+2 there is also `rounds/r<N>/briefs/<reviewer>-compare.md`. Give it to the same reviewer **after** its
+verdict is saved (the same session is fine; it is no longer blind), and save the reply apart from the
+score:
+
+```
+LOOP verdict --dir design-review --reviewer claude --compare compare-reply.json
 LOOP report --dir design-review                                     # writes design-review/report.html
 ```
+
+The comparison never changes a score; the report shows it under "What changed".
 
 Then show the person the report and the light theme screenshots (`rounds/r<N>/shots/`). Send them a
 notification if your agent can (in Claude Code, PushNotification) when a round's report is ready or the
@@ -87,7 +101,8 @@ loop needs a decision; the config's `notify` command can also send one (see `ref
 
 ## Rules
 
-- Reviewers never see each other's verdicts, earlier scores or the report; the brief tells them so.
+- Reviewers never see each other's verdicts, earlier rounds, earlier scores or the report while scoring;
+  the brief tells them so. Comparison with last round is a separate pass, after the verdict.
 - The same views, captured the same way, every round, so before and after compare like for like.
 - Never let a reviewer submit real payments, messages or personal data. Use demo data and a fresh copy.
 - Sandboxed reviewers (Codex) cannot start Chrome: `review` starts a shared headless Chrome and the brief

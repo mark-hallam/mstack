@@ -10,10 +10,12 @@ current folder), and every command that reports state can print JSON with --json
   status       where the loop is and what to do next (--json for agents)
   start-round  open the next round: rounds/r<N>/ with changes.md and this round's criteria
   capture      capture the fixed screens for the round, the same way every round
-  brief        write each reviewer's brief for the round (rounds/r<N>/briefs/<reviewer>.md)
+  brief        write each reviewer's blind scoring brief (rounds/r<N>/briefs/<reviewer>.md) and, from
+               round 2, a separate comparison brief (<reviewer>-compare.md) to give after the verdict
   serve        start the product on a port, in a fresh temporary folder, until stopped (for reviewers)
   review       run the command line reviewers (for example Codex) on their briefs, in parallel
-  verdict      check a reviewer's JSON verdict and save it to the round (for agent reviewers)
+  verdict      check a reviewer's JSON verdict and save it to the round (for agent reviewers);
+               --compare saves the comparison pass apart from the score of record
   validate     check a verdict file against the reply format, without saving it
   report       build report.html: score trend, each journey, proposals, before and after, filmstrips
   notify       send a test notification through the configured notify command
@@ -40,6 +42,7 @@ import urllib.request
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import readiness  # noqa: E402  (the stopping rule, the noise check and "do these next")
+import briefs  # noqa: E402  (the scoring brief, blind, and the separate comparison brief)
 
 SKILL = os.path.dirname(HERE)
 CONFIG_NAME = "mstack-eval.json"
@@ -119,10 +122,23 @@ class Project(object):
         out = {}
         vdir = self.rdir(n, "verdicts")
         for f in sorted(os.listdir(vdir)) if os.path.isdir(vdir) else []:
-            if f.endswith(".json"):
+            if f.endswith(".json") and not f.endswith(".compare.json"):
                 with open(os.path.join(vdir, f), encoding="utf-8") as fh:
                     try:
                         out[f[:-5]] = json.load(fh)
+                    except ValueError:
+                        pass
+        return out
+
+    def comparisons(self, n):
+        """The separate comparison passes (<reviewer>.compare.json), never mixed with the scores of record."""
+        out = {}
+        vdir = self.rdir(n, "verdicts")
+        for f in sorted(os.listdir(vdir)) if os.path.isdir(vdir) else []:
+            if f.endswith(".compare.json"):
+                with open(os.path.join(vdir, f), encoding="utf-8") as fh:
+                    try:
+                        out[f[:-len(".compare.json")]] = json.load(fh)
                     except ValueError:
                         pass
         return out
@@ -384,81 +400,31 @@ def cmd_capture(args):
         print(json.dumps({"round": n, "shots": out, "views": results}, indent=2))
 
 
-REPLY_FORMAT = """{"reviewer": "%(rid)s", "round": %(n)d,
- "journeys": [{"id": <journey id>, "name": "...", "score": <0 to 10>,
-   "if_fixed": <0 to 10: the score if your fixes for this journey were made>,
-   "what_worked": ["..."],
-   "fixes": [{"severity": "high|medium|low", "where": "screen or element", "problem": "...", "fix": "..."}]}],
- "overall": <0 to 10>,
- "top_fixes": ["the five changes that would raise the scores most"],
- "broken": ["anything that errored, did nothing, or showed wrong data"]}"""
-
-
-def brief_text(p, n, rid, index, cdp_port=None):
-    r = p.reviewer(rid) or {"id": rid}
-    port = 8900 + 10 * index
-    target = p.cfg.get("target", {})
-    me = os.path.abspath(__file__)
-    lines = ["# %s: independent design review, round %d" % (p.name, n), "",
-             "You are an independent, demanding reviewer. You have never seen this product. Judge it as this person: "
-             "%s Be specific and sceptical: a 10 means you could not find anything to improve for that journey. "
-             "Do not be polite; be useful." % p.cfg.get("persona", "a first-time user who is not technical."), "",
-             "## What it is", "", p.cfg.get("about", "(No description given.)"), "",
-             "## Set up", ""]
-    if target.get("start"):
-        lines += ["1. Start your own copy of the product on your own port, in the background (it runs in a fresh "
-                  "temporary folder and stops when you stop it):",
-                  "   `python3 %s serve --dir %s --port %d`" % (shlex.quote(me), shlex.quote(p.dir), port),
-                  "   It prints `ready: <address>` when it answers. Use that address in your steps."]
-    else:
-        lines += ["1. The product is at %s. Use it as a visitor would; never submit real payments, messages or "
-                  "personal data." % fill(target.get("url", ""), {"port": port})]
-    lines += ["2. Drive it with the journey driver, a real headless Chrome that saves a screenshot and the visible text "
-              "after every step:",
-              "   `node %s <steps.json> <out-folder>`" % shlex.quote(DRIVER),
-              "   Read the top of that file for the step format. Write one steps file per journey and screen size, and "
-              "keep your files in %s. Look at the screenshots (open the PNG files) as well as reading log.txt."
-              % p.rdir(n, "work", rid)]
-    if cdp_port:
-        lines += ["   If your sandbox cannot start Chrome, one is already running for you: put `MSTACK_CDP_PORT=%d` in "
-                  "front of the node command." % cdp_port]
-    lines += ["3. Stop anything you started when you finish. Never change the product's own files.",
-              "4. Work alone. Do not read other reviewers' briefs, work folders or verdicts, earlier verdicts, or "
-              "report.html: your scores must be your own.", "",
-              "## The journeys for this round (score each 0 to 10)", ""]
-    for j in p.journeys():
-        vp = j.get("viewport")
-        lines.append("%s. **%s%s.** %s" % (j["id"], j["name"], " (%s)" % vp if vp else "", j.get("task", "")))
-    lines += ["", "## Score each journey on", "",
-              "A journey only scores 10 when it meets every one of these.", ""]
-    for c in p.criteria(n):
-        lines.append("- **%s**: %s" % (c["name"], c.get("means", "")))
-    lines += ["", "## Before and after", ""]
-    prev = [k for k in p.round_numbers() if k < n and p.shots(k)]
-    if prev:
-        lines.append("Last round's screenshots of the same screens are in %s, and this round's are in %s. Compare them: "
-                     "say what improved, what got worse, and what is still in the way." % (
-                         p.rdir(prev[-1], "shots"), p.rdir(n, "shots")))
-    else:
-        lines.append("This is the first round. This round's fixed screenshots are in %s." % p.rdir(n, "shots"))
-    lines += ["", "## Reply format", "", "Return JSON only, with every journey scored:", "",
-              REPLY_FORMAT % {"rid": rid, "n": n}, ""]
-    return "\n".join(lines)
-
-
 def cmd_brief(args):
     p = Project(args.dir)
     n = p.need_round(args.round)
+    kinds = set(r.get("kind", "agent") for r in p.reviewers())
+    if p.reviewers() and kinds <= {"chat"}:
+        raise SystemExit("Every reviewer is a web chat. A chat reviewer only sees screenshots, so it is a tie breaker: "
+                         "add at least one reviewer of kind agent or command that drives the real product.")
     os.makedirs(p.rdir(n, "briefs"), exist_ok=True)
+    prev = [k for k in p.round_numbers() if k < n and p.shots(k)]
     written = []
     for i, r in enumerate(p.reviewers()):
         os.makedirs(p.rdir(n, "work", r["id"]), exist_ok=True)
         cdp = args.cdp_port if r.get("shared_chrome") else None
         path = p.rdir(n, "briefs", r["id"] + ".md")
         with open(path, "w", encoding="utf-8") as fh:
-            fh.write(brief_text(p, n, r["id"], i, cdp_port=cdp))
+            fh.write(briefs.scoring_brief(p, n, r["id"], i, cdp_port=cdp))
         written.append(path)
-    say(args, {"round": n, "briefs": written}, "\n".join(written))
+        if prev:
+            cpath = p.rdir(n, "briefs", r["id"] + "-compare.md")
+            with open(cpath, "w", encoding="utf-8") as fh:
+                fh.write(briefs.compare_brief(p, n, r["id"], prev[-1]))
+            written.append(cpath)
+    note = ("The scoring briefs are blind (no earlier rounds). Give a -compare brief to a reviewer only after its "
+            "verdict is saved, and save that reply with: verdict --compare" if prev else "")
+    say(args, {"round": n, "briefs": written, "note": note}, "\n".join(written) + ("\n" + note if note else ""))
 
 
 def cmd_serve(args):
@@ -683,12 +649,33 @@ def read_input(path):
         return fh.read()
 
 
+def save_comparison(p, n, rid, v):
+    os.makedirs(p.rdir(n, "verdicts"), exist_ok=True)
+    path = p.rdir(n, "verdicts", rid + ".compare.json")
+    v.setdefault("reviewer", rid)
+    v.setdefault("round", n)
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump(v, fh, indent=2, ensure_ascii=False)
+    return path
+
+
 def cmd_verdict(args):
     p = Project(args.dir)
     n = p.need_round(args.round)
     if not p.reviewer(args.reviewer):
         raise SystemExit("No reviewer %r in %s" % (args.reviewer, CONFIG_NAME))
     v = extract_json(read_input(args.file))
+    if args.compare:
+        probs = []
+        if not isinstance(v, dict) or not isinstance(v.get("compare"), dict):
+            probs.append("a comparison reply is a JSON object with a \"compare\" object (improved, regressed, unchanged).")
+        elif args.reviewer not in p.verdicts(n):
+            probs.append("save %s's verdict for round %d first: the comparison pass comes after the score of record." % (args.reviewer, n))
+        if probs:
+            say(args, {"ok": False, "problems": probs}, "Not saved:\n- " + "\n- ".join(probs))
+            sys.exit(1)
+        say(args, {"ok": True, "saved": save_comparison(p, n, args.reviewer, v), "next": next_step(p)})
+        return
     probs = check_verdict(p, v, args.reviewer, n)
     if probs:
         say(args, {"ok": False, "problems": probs}, "Not saved:\n- " + "\n- ".join(probs))
@@ -763,6 +750,7 @@ def main(argv=None):
     s.add_argument("--cdp-port", type=int, default=9555)
     s = add("verdict", cmd_verdict)
     s.add_argument("--reviewer", required=True)
+    s.add_argument("--compare", action="store_true", help="save the separate comparison pass, not a score")
     s.add_argument("file", nargs="?", default="-", help="the reply (a file, or - for standard input)")
     s = add("validate", cmd_validate, round_=False)
     s.add_argument("file", nargs="?", default="-")

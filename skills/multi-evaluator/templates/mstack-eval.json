@@ -1,6 +1,7 @@
 {
   "name": "My product",
-  "about": "One short paragraph for reviewers who have never seen it: what it is, who it is for, what it promises, and the design direction (for example: Apple clean, a sidebar and a list with a detail pane, light theme first with a dark theme).",
+  "about": "One short paragraph for reviewers who have never seen it: what it is, who it is for, what it promises. Leave the design direction out; it goes in rules.",
+  "rules": ["Constraints a fix must respect, shown to reviewers as not scored. For example: Apple clean, a sidebar and a list with a detail pane, light theme first with a dark theme."],
   "persona": "a first-time user who is not technical, uses a Mac and an iPhone, and expects apps to work like Apple's.",
   "note": "",
   "target": {
