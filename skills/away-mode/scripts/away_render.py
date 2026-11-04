@@ -65,7 +65,9 @@ def chrome(url, flags, timeout=90):
         return False, ""
     profile = tempfile.mkdtemp(prefix="mstack-away-chrome-", dir=tmp_base())
     cmd = [bin_, "--headless=new", "--user-data-dir=" + profile, "--no-first-run", "--disable-gpu", "--hide-scrollbars",
-           "--force-color-profile=srgb", "--virtual-time-budget=4000"] + os.environ.get("MSTACK_CHROME_ARGS", "").split() \
+           "--force-color-profile=srgb", "--virtual-time-budget=4000",
+           # Light theme first. Headless Chrome ignores --force-prefers-color-scheme; this setting works.
+           "--blink-settings=preferredColorScheme=1"] + os.environ.get("MSTACK_CHROME_ARGS", "").split() \
         + flags + [url]
     try:
         r = subprocess.run(cmd, capture_output=True, timeout=timeout)
