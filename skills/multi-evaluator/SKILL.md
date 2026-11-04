@@ -1,6 +1,6 @@
 ---
 name: multi-evaluator
-description: Improve a product's design and user experience in rounds until every user journey scores 10 out of 10 from at least two independent AI reviewers made by different companies (for example Claude and Codex). Each round captures the same screens the same way, each reviewer drives the real product in a real browser in fresh context and scores every journey 0 to 10 with an "if fixed" score and specific fixes, and a self-contained HTML report shows the score trend, before and after screenshots and a filmstrip of every round. Use when someone wants a site, app, profile or document reviewed and improved autonomously, asks for independent UX or design reviews, a design review loop, multiple evaluators, before and after screenshots, or "keep improving it until it is 10 out of 10".
+description: Improve a product's design in rounds until every user journey scores 10 out of 10 from independent AI reviewers made by different companies. Uses at least two reviewers (for example Claude and Codex). Each round captures the same screens the same way, each reviewer drives the real product in a real browser in fresh context and scores every journey 0 to 10 with an "if fixed" score and specific fixes, and a self-contained HTML report shows the score trend, before and after screenshots and a filmstrip of every round. Use when someone wants a site, app, profile or document reviewed and improved autonomously, asks for independent UX or design reviews, a design review loop, multiple evaluators, before and after screenshots, or "keep improving it until it is 10 out of 10".
 ---
 
 # Multi-evaluator design improvement loop
@@ -15,6 +15,16 @@ this agent, or any other agent gets the same results. Every command takes `--dir
 or later and Google Chrome or Chromium. Nothing else to install.
 
 Below, `LOOP` means `python3 <this skill's folder>/scripts/eval_loop.py`.
+
+## Before you start (every mStack skill)
+
+- If `~/.mstack/config.json` lists `multi-evaluator` under `"disabled"`, or the person said not to use it
+  for this task, work the usual way.
+- If `~/.mstack/learned/multi-evaluator.md` exists, read it: it holds this person's accepted improvements,
+  and they win over this file.
+- When the loop ends (or stops), record privately how it went:
+  `python3 <mstack skill folder>/scripts/mstack.py log multi-evaluator --outcome reached|partial|not-reached --needed-user "..." --stalled "..."`
+  (the mstack skill sits next to this one).
 
 ## 1. Journeys and criteria first
 

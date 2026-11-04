@@ -26,6 +26,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCRIPTS = os.path.join(ROOT, "skills", "multi-evaluator", "scripts")
 LOOP = os.path.join(SCRIPTS, "eval_loop.py")
 STAND_IN = os.path.join(ROOT, "tests", "stand_in_reviewer.py")
+STATIC = os.path.join(ROOT, "tests", "static_server.py")
 SAMPLE = os.path.join(ROOT, "examples", "sample-app")
 sys.path.insert(0, SCRIPTS)
 import eval_loop  # noqa: E402
@@ -54,8 +55,7 @@ def config(site):
         "about": "A one page reading list. People add books and mark them as read. Apple clean, light theme first.",
         "persona": "a first-time user who is not technical.",
         "note": "Illustrative: the scores come from the self-test's stand-in reviewers, not from a real AI review.",
-        "target": {"url": "http://127.0.0.1:{port}/", "start": [sys.executable, "-m", "http.server", "{port}", "--bind",
-                                                                "127.0.0.1"], "cwd": site},
+        "target": {"url": "http://127.0.0.1:{port}/", "start": [sys.executable, STATIC, "{port}", site], "cwd": site},
         "views": [
             {"id": "home-desktop", "name": "Home", "group": "Desktop", "viewport": "desktop",
              "steps": [{"do": "goto", "url": "{url}", "ms": 600}]},

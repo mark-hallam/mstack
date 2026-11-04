@@ -4,33 +4,43 @@ This file is for AI coding agents (Codex, Cursor, Claude Code, Gemini, Copilot a
 with this repository. People should start with README.md.
 
 mStack is a collection of skills. Each skill is a folder in `skills/` with a `SKILL.md` (the instructions,
-written so any agent can follow them), `scripts/` (standard library tools that do the work) and
-`references/` (detail to read when needed). No skill needs a package install or an account with mStack.
+written so any agent can follow them) and `scripts/` (standard library tools that do the work). No skill
+needs a package install or an account.
 
-## Skills
+## The skills switch on by themselves
 
-| Skill | Use it when | Start here |
+The person never has to name a skill. When a skill's moment comes, read its `SKILL.md` and follow it.
+
+| Skill | Switches on when | Start here |
 |---|---|---|
-| multi-evaluator | Someone wants a site, app or document reviewed and improved in rounds until every user journey scores 10 out of 10 from independent AI reviewers made by different companies, with before and after screenshots and an HTML report. | `skills/multi-evaluator/SKILL.md` |
+| ping-me | You need the person's decision or input, or a task they asked for is complete or blocked. On by default: notify them without being asked. | `skills/ping-me/SKILL.md` |
+| outcome-first | Any task bigger than a few steps: pin the outcome, ask every question in one batch with defaults, run to a verified outcome. | `skills/outcome-first/SKILL.md` |
+| multi-evaluator | Someone wants a product's design reviewed and improved in rounds until every journey scores 10 out of 10 from independent AI reviewers. | `skills/multi-evaluator/SKILL.md` |
+| mstack | The person switches a skill off or on, asks to "review my skills", or an mStack skill finishes (record how it went). | `skills/mstack/SKILL.md` |
+
+Before using any of them: if `~/.mstack/config.json` lists the skill under `"disabled"`, or the person said
+not to use it for this task, do not. If `~/.mstack/learned/<skill>.md` exists, read it: it holds the
+person's accepted improvements and wins over the skill's own file.
 
 ## Using a skill from any agent
 
-1. Read the skill's `SKILL.md` in full and follow it. Where it names a Claude Code tool (for example the
-   Agent tool for a fresh-context reviewer), use your own equivalent: a new session, thread or subagent
-   with only the brief as its instructions.
-2. Run its tools with `python3` and `node` from the skill's `scripts/` folder. Every multi-evaluator
-   command accepts `--json`, and `eval_loop.py status --json` always says what to do next.
-3. Ask the person before anything that costs money, sends anything, or changes their product's design
-   direction. Show them the report and screenshots at the end of each round.
+1. Read the skill's `SKILL.md` in full and follow it. Where it names a Claude Code tool (the Agent tool,
+   PushNotification, AskUserQuestion), use your own equivalent.
+2. Run its tools with `python3` (and `node` for multi-evaluator) from the skill's `scripts/` folder. They all
+   accept `--json` and say what to do next.
+3. Ask the person before anything that costs money, sends anything, or changes their settings files.
+4. To make the skills switch on by themselves in every session of your agent:
+   `python3 skills/mstack/scripts/mstack.py routing` prints a block for your global instructions, and
+   `setup codex` or `setup cursor` writes it after the person says yes.
 
 ## Working on this repository
 
 - Python 3.9 or later and Node.js 18 or later, standard library only. No dependencies.
-- Run the tests before every commit: `python3 tests/leak_scan.py && python3 tests/selftest.py`.
-  The self-test needs Google Chrome or Chromium and runs three review rounds on a tiny local page with
-  stand-in reviewers (no AI, no network beyond this computer).
+- Run every test before every commit: `python3 tests/run_all.py`. The multi-evaluator self-test needs
+  Google Chrome or Chromium.
 - Writing style for every file: plain English, Australian spelling, no dashes used as punctuation, and none of
   the hype words listed in `tests/leak_scan.py`.
 - No personal data, private paths, email addresses or tokens in any file; `tests/leak_scan.py` checks.
-- A new skill goes in `skills/<name>/` with a `SKILL.md` that has `name` and `description` frontmatter, and
-  a row in the table above, in README.md and in `docs/agents.md`.
+- A new skill goes in `skills/<name>/` with a `SKILL.md` that has `name` and `description` frontmatter and
+  the "Before you start (every mStack skill)" section, plus a row in the table above, in the mstack index
+  skill, in README.md and in `docs/agents.md`. `tests/test_skills.py` checks all of that.

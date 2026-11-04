@@ -197,7 +197,7 @@ class Target(object):
             return ""
 
     def _run(self, cmd, wait):
-        env = dict(os.environ)
+        env = dict(os.environ, PYTHONUNBUFFERED="1")             # so a Python product's output shows up at once
         env.update(fill(self.t.get("env", {}), self.values))
         shell = isinstance(cmd, str)
         kw = dict(cwd=self.cwd, env=env, shell=shell, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

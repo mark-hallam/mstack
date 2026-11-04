@@ -1,0 +1,190 @@
+#!/usr/bin/env python3
+"""Self-test for the mstack index skill and ping-me: on and off switches, the session start rules, the
+private journal, "review my skills", learned rules, notifications, and the setup for Claude Code hooks,
+Codex and Cursor.
+
+Everything runs in a throwaway folder: MSTACK_HOME points there, settings files are temporary copies, and
+notifications go to a stand-in command instead of the real desktop. A local web server stands in for ntfy.
+
+  python3 tests/test_mstack.py
+"""
+import http.server
+import json
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+import threading
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+TOOL = os.path.join(ROOT, "skills", "mstack", "scripts", "mstack.py")
+failures = []
+
+
+def check(ok, what):
+    print("%s  %s" % ("pass" if ok else "FAIL", what), flush=True)
+    if not ok:
+        failures.append(what)
+
+
+def main():
+    work = tempfile.mkdtemp(prefix="mstack-test-")
+    sent = os.path.join(work, "sent.txt")
+    env = dict(os.environ, MSTACK_HOME=os.path.join(work, "home"),
+               MSTACK_NOTIFY_COMMAND='printf "%%s|%%s\\n" "$MSTACK_TITLE" "$MSTACK_MESSAGE" >> %s' % sent)
+
+    def run(*args, stdin=None, expect=0):
+        r = subprocess.run([sys.executable, TOOL] + list(args), capture_output=True, text=True, env=env, input=stdin,
+                           timeout=60)
+        if r.returncode != expect:
+            print(r.stdout, r.stderr)
+            raise SystemExit("FAIL  mstack.py %s exited %d, expected %d" % (" ".join(args), r.returncode, expect))
+        return r.stdout
+
+    def pings():
+        if not os.path.exists(sent):
+            return []
+        with open(sent) as fh:
+            return fh.read().splitlines()
+
+    try:
+        # on and off
+        names = [s["name"] for s in json.loads(run("skills", "--json"))["skills"]]
+        check({"mstack", "ping-me", "outcome-first", "multi-evaluator"} <= set(names), "every skill is listed")
+        run("enabled", "ping-me")
+        check(True, "ping-me is on by default")
+        start = run("session-start")
+        check("ping me" in start and "PushNotification" in start, "session start switches ping me on")
+        check("outcome first" in start and "multi-evaluator" in start, "session start lists the other skills")
+        run("disable", "ping-me")
+        run("enabled", "ping-me", expect=1)
+        check(json.load(open(os.path.join(work, "home", "config.json")))["disabled"] == ["ping-me"],
+              "disable writes ~/.mstack/config.json")
+        start = run("session-start")
+        check("PushNotification" not in start and "Switched off by the person (do not use): ping-me" in start,
+              "a switched off skill leaves the session start rules")
+        run("ping", "should not arrive")
+        check(pings() == [], "no ping while ping-me is off")
+        run("enable", "ping-me")
+        run("disable", "no-such-skill", expect=1)
+        check(True, "an unknown skill is refused")
+
+        # ping me
+        run("ping", "Need your OK to publish: 2 options in the chat", "--title", "mStack")
+        check(pings()[-1] == "mStack|Need your OK to publish: 2 options in the chat", "ping sends the message")
+        run("ping", "x" * 400)
+        check(len(pings()[-1].split("|", 1)[1]) == 200, "a ping is cut to 200 characters")
+        run("ping", "hook", stdin=json.dumps({"hook_event_name": "Notification", "cwd": "/tmp/shop",
+                                              "message": "Claude needs your permission to use Bash",
+                                              "notification_type": "permission_prompt"}))
+        check(pings()[-1] == "Claude needs you: shop|Claude needs your permission to use Bash",
+              "the Claude Code Notification hook pings")
+        run("ping", "hook", stdin=json.dumps({"hook_event_name": "Stop", "cwd": "/tmp/shop",
+                                              "last_assistant_message": "Done: the site is live."}))
+        check(pings()[-1] == "Claude finished: shop|Done: the site is live.", "the Claude Code Stop hook pings")
+        run("ping", "codex-event", json.dumps({"type": "agent-turn-complete", "cwd": "/tmp/api",
+                                               "last-assistant-message": "All tests pass."}))
+        check(pings()[-1] == "Codex finished: api|All tests pass.", "the Codex notify event pings")
+        n = len(pings())
+        run("ping", "codex-event", json.dumps({"type": "something-else"}))
+        check(len(pings()) == n, "other Codex events do not ping")
+
+        # ntfy only when the person sets it up
+        got = []
+
+        class H(http.server.BaseHTTPRequestHandler):
+            def do_POST(self):
+                got.append((self.path, self.headers.get("Title"), self.rfile.read(int(self.headers["Content-Length"])).decode()))
+                self.send_response(200)
+                self.end_headers()
+
+            def log_message(self, *a):
+                pass
+        srv = http.server.HTTPServer(("127.0.0.1", 0), H)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        run("ping", "no phone service yet")
+        check(got == [], "nothing goes to a phone service by default")
+        cfg = json.load(open(os.path.join(work, "home", "config.json")))
+        cfg["ping"] = {"ntfy_topic": "private-topic", "ntfy_server": "http://127.0.0.1:%d" % srv.server_address[1]}
+        json.dump(cfg, open(os.path.join(work, "home", "config.json"), "w"))
+        run("ping", "Done: report ready", "--title", "mStack")
+        srv.shutdown()
+        check(got == [("/private-topic", "mStack", "Done: report ready")], "ntfy gets the ping once the person sets a topic")
+
+        # the private journal, review my skills, learned rules
+        for i in range(3):
+            run("log", "outcome-first", "--outcome", "reached" if i else "partial", "--needed-user", "the deploy target",
+                "--stalled", "waiting for tests" if i == 0 else "", "--correction", "use the staging site first")
+        lines = open(os.path.join(work, "home", "journal", "outcome-first.jsonl")).read().splitlines()
+        check(len(lines) == 3 and json.loads(lines[0])["outcome"] == "partial", "log keeps a private journal line per use")
+        cfg["review_every"] = 3
+        json.dump(cfg, open(os.path.join(work, "home", "config.json"), "w"))
+        check("Review due: outcome-first (3 uses" in run("session-start"), "a review is offered after enough uses")
+        rev = json.loads(run("review", "--json"))
+        r = rev["skills"]["outcome-first"]
+        check(r["outcomes"] == {"reached": 2, "partial": 1, "not-reached": 0}, "review counts the outcomes")
+        check(r["needed_user"] == [["the deploy target", 3]] and r["corrections"] == [["use the staging site first", 3]],
+              "review gathers where it needed the person and their corrections")
+        check(os.path.exists(rev["review"]) and "the deploy target (3)" in open(rev["review"]).read(),
+              "review writes the evidence file")
+        check("Review due" not in run("session-start"), "after a review, it is no longer due")
+        run("learn", "outcome-first", "Ask for the deploy target in the first batch of questions.")
+        check("Ask for the deploy target" in run("learned", "outcome-first"), "learn keeps an accepted improvement")
+
+        # setup for each agent: shows first, writes only with --write, keeps what was there
+        settings = os.path.join(work, "claude-settings.json")
+        json.dump({"model": "keep-me", "hooks": {"Stop": [{"hooks": [{"type": "command", "command": "echo mine"}]}]}},
+                  open(settings, "w"))
+        before = open(settings).read()
+        out = run("setup", "claude-hooks", "--settings", settings)
+        check("Would add" in out and open(settings).read() == before, "claude-hooks shows the change without --write")
+        run("setup", "claude-hooks", "--settings", settings, "--write")
+        s = json.load(open(settings))
+        cmds = [h["command"] for g in s["hooks"]["Stop"] for h in g["hooks"]]
+        check(s["model"] == "keep-me" and "echo mine" in cmds and any("ping hook" in c for c in cmds)
+              and "Notification" in s["hooks"], "claude-hooks adds Notification and Stop and keeps the rest")
+        check(os.path.exists(settings + ".mstack-backup") and os.path.exists(os.path.join(work, "home", "bin", "mstack.py")),
+              "claude-hooks keeps a backup and a stable copy of the tool")
+        run("setup", "claude-hooks", "--settings", settings, "--write")
+        s = json.load(open(settings))
+        check(len(s["hooks"]["Stop"]) == 2, "claude-hooks is safe to run twice")
+        run("setup", "claude-hooks", "--settings", settings, "--write", "--remove")
+        s = json.load(open(settings))
+        check(s["hooks"] == {"Stop": [{"hooks": [{"type": "command", "command": "echo mine"}]}]},
+              "claude-hooks --remove takes out only mStack's hooks")
+
+        codex = os.path.join(work, "codex", "config.toml")
+        os.makedirs(os.path.dirname(codex))
+        open(codex, "w").write('model = "x"\n\n[profiles.fast]\nmodel = "y"\n')
+        run("setup", "codex", "--codex-config", codex, "--write")
+        text = open(codex).read()
+        top = text.split("[profiles.fast]")[0]
+        check('notify = ["python3"' in top and "codex-event" in top and 'model = "y"' in text,
+              "codex setup adds notify at the top level and keeps the rest")
+        agents = open(os.path.join(work, "codex", "AGENTS.md")).read()
+        check(agents.count("<!-- mstack:start -->") == 1 and "ping me" in agents, "codex setup adds the routing block")
+        run("setup", "codex", "--codex-config", codex, "--write")
+        check(open(codex).read().count("notify =") == 1 and
+              open(os.path.join(work, "codex", "AGENTS.md")).read().count("<!-- mstack:start -->") == 1,
+              "codex setup is safe to run twice")
+        other = os.path.join(work, "codex2", "config.toml")
+        os.makedirs(os.path.dirname(other))
+        open(other, "w").write('notify = ["my-notifier"]\n')
+        out = run("setup", "codex", "--codex-config", other, "--write")
+        check(open(other).read() == 'notify = ["my-notifier"]\n' and "left it alone" in out,
+              "codex setup never replaces the person's own notify")
+
+        project = os.path.join(work, "project")
+        run("setup", "cursor", "--project", project, "--write")
+        rule = open(os.path.join(project, ".cursor", "rules", "mstack.mdc")).read()
+        check(rule.startswith("---\n") and "alwaysApply: true" in rule and "outcome first" in rule,
+              "cursor setup writes an always-applied rule")
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+    print("\n%s" % ("all checks passed" if not failures else "%d checks failed" % len(failures)))
+    sys.exit(1 if failures else 0)
+
+
+if __name__ == "__main__":
+    main()

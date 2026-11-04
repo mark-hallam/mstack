@@ -1,7 +1,7 @@
 {
   "name": "mstack",
-  "version": "0.1.0",
-  "description": "Mark Hallam's skills for people and their AI agents, agent agnostic. First skill: multi-evaluator, a design improvement loop that runs independent AI reviewers from different makers every round until every user journey scores 10 out of 10.",
+  "version": "0.2.0",
+  "description": "Mark Hallam's skills for people and their AI agents, agent agnostic, switching on by themselves when relevant: ping-me (on by default: notifies you when your decision is needed or a task is done), outcome-first (asks everything once, then runs to a verified outcome), multi-evaluator (independent AI design review until every journey scores 10 out of 10), and mstack (the index, on and off switches, and private self-improvement).",
   "author": {
     "name": "Mark Hallam",
     "url": "https://github.com/mark-hallam"
@@ -9,5 +9,12 @@
   "homepage": "https://github.com/mark-hallam/mstack",
   "repository": "https://github.com/mark-hallam/mstack",
   "license": "MIT",
-  "keywords": ["agent-skills", "ux", "design-review", "evaluation", "codex", "claude-code"]
+  "keywords": [
+    "agent-skills",
+    "ux",
+    "design-review",
+    "evaluation",
+    "codex",
+    "claude-code"
+  ]
 }

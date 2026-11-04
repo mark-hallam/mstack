@@ -28,7 +28,7 @@ jobs:
           python-version: ${{ matrix.python }}
       - name: Leak and style scan
         run: python3 tests/leak_scan.py
-      - name: Self-test (three review rounds on a local page)
+      - name: Every test (packaging, mstack, outcome-first, multi-evaluator)
         env:
           MSTACK_CHROME_ARGS: ${{ runner.os == 'Linux' && '--no-sandbox' || '' }}
-        run: python3 tests/selftest.py
+        run: python3 tests/run_all.py
