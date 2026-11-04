@@ -2,6 +2,17 @@
 
 Every release of mStack, newest first. Dates are the day the release was made.
 
+## 0.4.1, 5 November 2026
+
+- away-mode: screenshots and PDFs now really render in the light theme. Headless Chrome ignored the old
+  colour scheme switch, so a computer set to dark mode got dark screenshots; it now uses the setting Chrome
+  actually honours.
+- crew: workers no longer try to save their own work to git. A sandboxed worker often cannot, and jobs it had
+  finished came back marked blocked. The crew already saves the changes on the job's side branch itself, and
+  the worker's rules now say so.
+- crew: a project that already has a branch named plain `crew` no longer blocks every job from starting (git
+  will not let `crew/<job>` sit beside it). Those projects get `crew-jobs/<job>` instead.
+
 ## 0.4.0, 5 November 2026
 
 - away-mode: phone screenshots are now laid out at true phone width (390 css px). Headless Chrome will not lay a page out narrower than about 500 px, so earlier phone screenshots lost their right edge.

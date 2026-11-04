@@ -6,14 +6,14 @@
   },
   "metadata": {
     "description": "Mark Hallam's skills for people and their AI agents.",
-    "version": "0.4.0"
+    "version": "0.4.1"
   },
   "plugins": [
     {
       "name": "mstack",
       "source": "./",
       "description": "Skills for people and their AI agents, agent agnostic, switching on by themselves: ping-me, away-mode, outcome-first, multi-evaluator, crew and the mstack index with private self-improvement.",
-      "version": "0.4.0",
+      "version": "0.4.1",
       "author": {
         "name": "Mark Hallam"
       },
