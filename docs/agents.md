@@ -29,6 +29,7 @@ to your agent's global instructions (for Codex and Cursor, `mstack.py setup code
 | ping-me | You need the person's decision or input, or a task they asked for is complete or blocked. On by default: notify them without being asked. |
 | outcome-first | Any task bigger than a few steps: pin the outcome, ask every question in one batch with defaults, then run to a verified outcome. |
 | multi-evaluator | The person wants their site, app or document reviewed and improved in rounds until every user journey scores 10 out of 10 from independent AI reviewers from different makers. |
+| away-mode | You are about to present a file, report, mockup, screenshot or link, or the person says they are on their phone, away, out or back. Notice when they are away and deliver phone-readable copies (PNG, PDF, files in the chat, key points in the reply). On by default. |
 | mstack | The person switches a skill off or on, asks to "review my skills", or an mStack skill finishes (record privately how it went). |
 
 When one applies, read `~/mstack/skills/<skill>/SKILL.md` in full and follow it.

@@ -17,6 +17,7 @@ there, switching on by itself when it is relevant. Switch any of them off whenev
 | [ping-me](skills/ping-me/SKILL.md) | Tells you on your phone and watch, without being asked, whenever your agent needs your decision or input, or a task you asked for is done or blocked. So you can walk away. | On |
 | [outcome-first](skills/outcome-first/SKILL.md) | The path of least resistance: your agent pins down the outcome you want, asks every question once (with sensible defaults), then works to a verified result on its own, in parallel, surviving restarts and usage limits, and reports once. | On |
 | [multi-evaluator](skills/multi-evaluator/SKILL.md) | Improves a product's design in rounds until every user journey scores 10 out of 10 from independent AI reviewers made by different companies, with before and after screenshots and a report every round. | On |
+| [away-mode](skills/away-mode/SKILL.md) | Notices by itself when you are away from your computer and following from your phone, and presents every output in a form the phone can show: screenshots, PDFs, files sent to the chat, and the key points in the message. No more asking for a screenshot. | On |
 | [mstack](skills/mstack/SKILL.md) | The index: which skills switch on when, the on and off switches, and private self-improvement ("review my skills"). | Always |
 
 ### ping-me: walk away, get pinged
@@ -53,6 +54,18 @@ The example above is [examples/sample-report.html](examples/sample-report.html)
 ([view it in your browser](https://htmlpreview.github.io/?https://github.com/mark-hallam/mstack/blob/main/examples/sample-report.html)),
 made by the self-test from a tiny sample page. Its scores come from stand-in reviewers, so they are
 illustrative only.
+
+### away-mode: following from your phone, without asking for screenshots
+
+You start a job at your desk and follow it from your phone. From there you cannot click a local path, run
+an `open` command or look at a file on the computer. Before presenting anything, your agent checks whether
+you are away: your own words win ("I'm on my phone", "I'm back"), then what the harness tells it (you are
+following from another device, a push was not sent because you are at the terminal), then the machine
+itself (keyboard and mouse idle for 10 minutes, a locked screen, a sleeping display). When you are away, or
+it cannot tell, it makes phone-readable copies (an HTML report becomes a PDF and a phone-width light-theme
+screenshot; Markdown becomes HTML then PDF; a local web app becomes desktop and phone screenshots), sends
+them into the chat, and puts the 3 to 5 key points in the message itself. Never just a path. When you are
+back at the computer, local links and `open` commands return.
 
 ## Install
 
@@ -96,6 +109,8 @@ you choose to share an improvement (for example as an issue or pull request here
 - Python 3.9 or later and Node.js 18 or later. Standard library only: nothing to install.
 - For multi-evaluator: Google Chrome or Chromium, and for the default reviewers an agent that can start a
   fresh-context reviewer (Claude Code does) plus the [Codex command line tool](https://github.com/openai/codex).
+- For away-mode's PDFs and screenshots: Google Chrome or Chromium (it falls back to the system's own tools
+  on macOS, and says plainly when nothing can render).
 
 ## Check it works
 
@@ -105,8 +120,9 @@ python3 tests/run_all.py
 
 This runs the leak and style scan, the packaging checks, and each skill's self-test: switches, pings (to a
 stand-in, never your real desktop), the private journal and reviews, the setup for each agent (on temporary
-copies of the settings files), the outcome plan with a stand-in crontab, and three review rounds on a tiny
-local page with stand-in reviewers (no AI and no network beyond your own computer).
+copies of the settings files), the outcome plan with a stand-in crontab, away detection with stand-in
+machine signals plus a real render when Chrome is present, and three review rounds on a tiny local page
+with stand-in reviewers (no AI and no network beyond your own computer).
 
 ## Licence
 

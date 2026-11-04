@@ -36,6 +36,8 @@ def files():
         dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
         for n in names:
             path = os.path.join(base, n)
+            if n in SKIP_DIRS:            # in a git worktree, .git is a file pointing at the main checkout
+                continue
             if os.path.splitext(n)[1].lower() in TEXT:
                 yield path
 

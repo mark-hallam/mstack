@@ -186,6 +186,17 @@ def rules(for_hook):
         lines.append("Always on, outcome first: for any task bigger than a few steps, pin down the outcome and what "
                      "done looks like, ask every question in one batch with defaults, then run to a verified outcome "
                      "without further input (see outcome-first's SKILL.md).")
+    if "away-mode" in names:
+        away = os.path.join(SKILLS, "away-mode", "scripts", "away.py")
+        lines.append("Always on, away mode: before presenting any file, report, mockup, screenshot or link, run "
+                     "python3 %s status (add --hint \"<what the harness told you>\" if it said the person follows from "
+                     "another device, or a push was not sent because they are at the terminal). If away is true or "
+                     "unsure, make phone-readable copies (python3 %s render <file-or-address>), send them to the chat "
+                     "(%s), put the 3 to 5 key points in the reply, and never end with only a local path or an open "
+                     "command. When they say they are on their phone or back, record it: python3 %s set away|back." % (
+                         shlex.quote(away), shlex.quote(away),
+                         "the SendUserFile tool" if for_hook else "your agent's file-sending tool, or a private link",
+                         shlex.quote(away)))
     lines.append("After an mStack skill is used, record privately how it went: %s log <skill> --outcome "
                  "reached|partial|not-reached [--needed-user ...] [--stalled ...] [--correction ...]. If "
                  "%s exists, it holds the person's accepted improvements to that skill: follow it." % (

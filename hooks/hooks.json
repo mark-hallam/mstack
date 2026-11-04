@@ -1,5 +1,5 @@
 {
-  "description": "mStack: at the start of each session, add the always-on rules (which skills switch on by themselves, ping me, outcome first, and any review that is due), respecting ~/.mstack/config.json.",
+  "description": "mStack: at the start of each session, add the always-on rules (which skills switch on by themselves, ping me, away mode, outcome first, and any review that is due), respecting ~/.mstack/config.json.",
   "hooks": {
     "SessionStart": [
       {
