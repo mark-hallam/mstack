@@ -28,6 +28,9 @@ border-radius:5px}.tile,.card{min-width:0}@media (max-width:600px){.tiles{grid-t
 body{padding:16px}}"""
 
 
+STATUS_TOOL = os.path.join(st.SKILLS, "mstack", "scripts", "status.py")
+
+
 def esc(s):
     return html.escape(str(s))
 
@@ -100,6 +103,7 @@ def build_html(d):
     page = ("<!DOCTYPE html><html lang='en'><head><meta charset='utf-8'><meta name='color-scheme' content='light only'><meta name='viewport' content='width=device-width,initial-scale=1'>"
             "<title>Crew digest %s</title><style>%s</style></head><body><main>"
             "<h1>Your crew, %s</h1><p class='sub'>What finished while you were away, what needs you, and the usage it took.</p>"
+            "<p class='sub'>Everything across your projects: <code>%s</code></p>"
             "<div class='tiles'><div class='tile'><b>%d</b><span>finished in the last day</span></div>"
             "<div class='tile'><b>%d</b><span>waiting for you</span></div>"
             "<div class='tile'><b>%s</b><span>tokens used by finished jobs (cached reads included)</span></div>"
@@ -110,7 +114,7 @@ def build_html(d):
             "<h2>Usage against the cap</h2><div class='card'>%s</div>"
             "<h2>Still queued</h2><div class='card'><p class='sub'>%d jobs queued. <code>crew.py list</code> shows them.</p></div>"
             "</main></body></html>") % (
-        esc(d["date"]), CSS, esc(d["date"]), len(d["finished"]), len(d["waiting"]) + len(d["stuck"]), format(d["tokens"], ","),
+        esc(d["date"]), CSS, esc(d["date"]), esc("python3 %s status --render" % STATUS_TOOL), len(d["finished"]), len(d["waiting"]) + len(d["stuck"]), format(d["tokens"], ","),
         ns["outcomes_without_the_person"], format(ns["tokens_per_outcome"], ","), finished, waiting, usage_html(d["budgets"]), len(d["todo"]))
     return page
 

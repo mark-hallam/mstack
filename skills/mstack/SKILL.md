@@ -79,6 +79,19 @@ is `- none` drops the global rules under that heading.
 
 Keep real secrets out of the file: a rule may name a kind of secret ("the family name"), never the secret.
 
+## Status across everything
+
+`MSTACK status [--project <folder>] [--json] [--render] [--days N]` (run `python3 <mstack skill folder>/scripts/status.py status`
+directly if you prefer) shows every project mStack knows in one view. Projects are found from the rules files, the
+outcomes, the crew config and queue, and the review folders under the mStack home, and merged by folder. **"Waits for
+you" is always first**: open outcome questions (with their defaults), crew questions, reviews waiting for the person's
+fixes and blocked outcomes, each with the command that answers it. Then one block per project (where it is, the State
+lines of its HANDOFF.md, what is running, the latest review, what shipped last, whether it has a rules file), folders
+that are gone, and the crew's usage against the cap. Use it when the person asks what is happening across their
+projects. It only reads. `--render` writes `status.md` in today's outbox and makes a PDF and a phone-width picture of
+it; send those when the person is away. `--days N` (default 7) limits the running work and reviews shown; what waits
+for the person is never limited.
+
 ## Setting mStack up in each agent
 
 - **Claude Code**: install the plugin (`/plugin marketplace add mark-hallam/mstack`, then

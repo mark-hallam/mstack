@@ -103,6 +103,8 @@ Any agent can run the queue: `CREW next --json` for the job and its brief (`runs
 run), do the work under the same rules, then record the result through the same JSON block. Claude Code and
 Codex are the built-in runners; `references/runners.md` says how Cursor or another tool plugs in.
 
+The morning digest points to `python3 <mstack skill folder>/scripts/status.py status --render`, the one view across every project (what waits for the person first).
+
 ## After
 
 Record privately how it went: `python3 <mstack skill folder>/scripts/mstack.py log crew --outcome reached|partial|not-reached --needed-user "..." --stalled "..."`
