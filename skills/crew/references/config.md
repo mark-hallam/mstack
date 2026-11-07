@@ -17,6 +17,7 @@ folders and is never inside a repository. `crew.py init` writes the starter in `
 | `tick_minutes` | 15 | How often the background job wakes (what `install --every` writes). |
 | `tests_every_minutes` | 120 | How often a `tests` source actually runs the test command. |
 | `job_timeout_minutes` | 90 | A run longer than this is stopped and the job marked failed. |
+| `max_attempts` | 3 | How many times crew tries a job automatically before parking it (never above 3). |
 | `runners` | see below | How each runner is called. |
 | `projects` | `[]` | The projects and their sources. |
 
@@ -83,10 +84,12 @@ folders and is never inside a repository. `crew.py init` writes the starter in `
 A job in `~/.mstack/crew/queue.json` carries: `id`, `project`, `stream`, `title`, `outcome`, `done` (each
 `"what::command"` or just `"what"`), `needs` (shared resources such as `chrome`, set when a scan or `add`
 sees tests, `run_all`, an evaluator source, or you pass `crew.py add --needs chrome`), `tier`, `estimate_tokens`,
-`unattended`, `files`, `runner`, `source`,
-`batch`, `context`, `state` (`todo`, `doing`, `done`, `question`, `blocked`, `failed`, `skipped`), `evidence`,
-`usage` (tokens, the list price the platform reports for information, the window after the run), `question`
-and `default`, `note`, `tries`. Each run keeps `runs/<job-id>/prompt.md`, `output.jsonl` and `result.json`.
+`unattended`, `files`, `runner`, `runner_required` (when true, the job waits for that runner even after it
+fails), `source`, `batch`, `context`, `state` (`todo`, `doing`, `done`, `question`, `blocked`, `failed`,
+`skipped`), `evidence`, `usage` (tokens, the list price the platform reports for information, the window
+after the run), `question` and `default`, `note`, `tries`, `attempts` (each with `runner`, `model`, `started`,
+`finished`, `result`, `note`), `retry_after` (when the next automatic try may run). Each attempt keeps its
+files under `runs/<job-id>/attempt-<n>/`; `runs/<job-id>/result.json` is always the latest.
 
 ## Files in `~/.mstack/crew`
 
