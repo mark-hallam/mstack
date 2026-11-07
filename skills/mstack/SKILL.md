@@ -92,6 +92,24 @@ projects. It only reads. `--render` writes `status.md` in today's outbox and mak
 it; send those when the person is away. `--days N` (default 7) limits the running work and reviews shown; what waits
 for the person is never limited.
 
+## Briefs in one line
+
+The person should not have to type a brief. `MSTACK brief <kind> "<one line goal>" [--project <folder>]
+[--read <file> ...]` writes a complete brief to `~/.mstack/briefs/` and prints it: what to read first, the
+project's rules file (read on every brief, so a gap is shown when there is none), the job, the output format
+and the same finishing block crew uses. The five kinds:
+
+- `tester`: plays a persona from the rules file against `--target`, quotes the screen, ends with `RELEASE` or `HOLD`.
+- `reviewer`: scores blind in the multi-evaluator reply format (`--persona` optional).
+- `worker`: a coding job; `--worktree` makes a git worktree and a `work/<slug>` branch for it.
+- `research`: reads only, every claim tagged VERIFIED or UNCONFIRMED.
+- `security`: checks a repository for committed secrets and unchecked input, and changes nothing.
+
+Other options: `--previous <report>` (tester re-grades the earlier findings first), `--unattended` (ask nothing,
+take the defaults), `--json`. `--run claude|codex|cursor` (or a runner from the crew config) starts the brief
+and saves the reply beside it as `<brief>.reply.md`; `--model <name>` passes the model. The tool never commits,
+pushes or sends anything itself.
+
 ## Setting mStack up in each agent
 
 - **Claude Code**: install the plugin (`/plugin marketplace add mark-hallam/mstack`, then

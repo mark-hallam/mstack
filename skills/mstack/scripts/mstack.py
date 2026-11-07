@@ -40,6 +40,7 @@ SKILLS = os.path.dirname(os.path.dirname(HERE))          # the folder holding ev
 SELF = os.path.abspath(__file__)
 sys.path.insert(0, HERE)
 import rules as rules_file  # noqa: E402  (the rules file per project)
+import brief as brief_tool  # noqa: E402  (one line becomes a complete brief)
 OUTCOMES = ("reached", "partial", "not-reached")
 DEFAULTS = {"disabled": [], "review_every": 10,
             "ping": {"desktop": True, "ntfy_topic": "", "ntfy_server": "https://ntfy.sh"}}
@@ -217,8 +218,10 @@ def rules(for_hook):
     here = rules_file.find_project(os.getcwd()) if for_hook else None
     if here and os.path.exists(os.path.join(here, "rules.md")):
         lines.append("This project's rules: %s. Every brief you write for another agent must carry them: python3 %s show "
-                     "--project %s --brief." % (os.path.join(here, "rules.md"), shlex.quote(os.path.join(HERE, "rules.py")),
-                                                shlex.quote(os.getcwd())))
+                     "--project %s --brief. Starting another agent? Write its brief with python3 %s <kind> \"<goal>\" "
+                     "--project %s." % (os.path.join(here, "rules.md"), shlex.quote(os.path.join(HERE, "rules.py")),
+                                       shlex.quote(os.getcwd()), shlex.quote(os.path.join(HERE, "brief.py")),
+                                       shlex.quote(os.getcwd())))
     lines.append("After an mStack skill is used, record privately how it went: %s log <skill> --outcome "
                  "reached|partial|not-reached [--needed-user ...] [--stalled ...] [--correction ...]. If "
                  "%s exists, it holds the person's accepted improvements to that skill: follow it." % (
@@ -644,6 +647,7 @@ def main(argv=None):
     s.set_defaults(fn=cmd_ping)
     sub.add_parser("status", help="every project at once, what waits for you first (see status.py)")
     sub.add_parser("rules", help="a rules file per project: init, show, list, import, accept (see rules.py)")
+    sub.add_parser("brief", help="one line becomes a complete brief for another agent (see brief.py)")
     s = sub.add_parser("setup")
     s.add_argument("target", choices=("claude-hooks", "codex", "cursor", "ntfy"))
     s.add_argument("--write", action="store_true", help="make the change (only after the person says yes)")
@@ -665,6 +669,8 @@ def main(argv=None):
     if argv[:1] == ["status"]:                               # status across everything: see status.py
         import status as status_view
         return status_view.main(argv[1:])
+    if argv[:1] == ["brief"]:                                # one line becomes a brief: see brief.py
+        return brief_tool.main(argv[1:])
     args = ap.parse_args(argv)
     if also is not None:
         args.also = also
