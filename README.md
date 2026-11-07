@@ -56,7 +56,7 @@ Chrome or Chromium are needed only by the review loop and by phone-width screens
 | [multi-evaluator](skills/multi-evaluator/SKILL.md) | Improves a product's design in rounds until it is ready for real people: every user journey 9 or better from independent AI reviewers made by different companies, agreeing within a point, with no high-severity fix open, two rounds running. Before and after screenshots and a report every round. | On |
 | [design-direction](skills/design-direction/SKILL.md) | Finds the look of a new product: a few whole working directions built from one brief, a comparison page with a recommendation, your pick, then variants that differ in structure only, then a locked brand file. | On |
 | [away-mode](skills/away-mode/SKILL.md) | Notices by itself when you are away from your computer and following from your phone, and presents every output in a form the phone can show: screenshots, PDFs, files sent to the chat, and the key points in the message. | On |
-| [mstack](skills/mstack/SKILL.md) | The index: which skills switch on when, the on and off switches, one private rules file per project that every brief carries, and private self-improvement ("review my skills"). | Always |
+| [mstack](skills/mstack/SKILL.md) | The index: which skills switch on when, the on and off switches, one private rules file per project that every brief carries, one-line briefs for a tester, reviewer, worker, researcher or security check that can start on the runner you choose, and private self-improvement ("review my skills"). | Always |
 
 ### ping-me: walk away, get pinged
 
