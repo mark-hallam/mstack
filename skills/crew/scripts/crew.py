@@ -31,6 +31,11 @@ import shutil
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+_SKILLS = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_LOCKS = os.path.join(_SKILLS, "mstack", "scripts")
+if _LOCKS not in sys.path:
+    sys.path.insert(0, _LOCKS)
+import locks  # noqa: E402
 import crew_digest as digest   # noqa: E402
 import crew_install as inst    # noqa: E402
 import crew_run as runner      # noqa: E402
@@ -80,6 +85,10 @@ def why_not(cfg, q, state, job, budgets, running):
         return "heavy job: waits for quiet hours or until the person is away"
     if st.files_clash(job, running, q):
         return "another job is running on the same project or files"
+    for res in job.get("needs") or []:
+        held = locks.holder(res)
+        if held:
+            return locks.wait_message(res, held)
     return ""
 
 
@@ -139,7 +148,8 @@ def cmd_add(args):
     p = st.project(cfg, args.project)
     job = st.new_job(p["id"], args.title, outcome=args.outcome, done=args.done or sources.done_checks(p), tier=args.tier,
                      estimate=args.estimate, unattended=not args.with_person, files=args.file, runner=args.runner,
-                     stream=p["stream"], context=args.context or "", key="manual:" + args.title)
+                     stream=p["stream"], context=args.context or "", key="manual:" + args.title, needs=args.needs or None)
+    sources.apply_needs(job, p)
     added = st.add_job(q, job)
     st.save_queue(q)
     out(args, {"job": job, "added": added}, "%s %s" % ("queued" if added else "already queued", job["id"]))
@@ -379,6 +389,7 @@ def main(argv=None):
     s.add_argument("--done", action="append"); s.add_argument("--tier", default="fast", choices=st.TIERS); s.add_argument("--estimate", type=int)
     s.add_argument("--file", action="append", default=[]); s.add_argument("--runner", default="auto"); s.add_argument("--context")
     s.add_argument("--with-person", action="store_true", help="the person must be in this job: listed, never run alone")
+    s.add_argument("--needs", action="append", default=[], help="resources this job needs, for example chrome")
     s = cmd("list", cmd_list); s.add_argument("--all", action="store_true")
     cmd("next", cmd_next)
     s = cmd("run", cmd_run); s.add_argument("job", nargs="?"); s.add_argument("--dry-run", action="store_true"); s.add_argument("--force", action="store_true")

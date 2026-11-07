@@ -42,6 +42,10 @@ from datetime import datetime, timezone
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
+_LOCKS = os.path.join(os.path.dirname(os.path.dirname(HERE)), "mstack", "scripts")
+if _LOCKS not in sys.path:
+    sys.path.insert(0, _LOCKS)
+import locks  # noqa: E402
 import readiness  # noqa: E402  (the stopping rule, the noise check and "do these next")
 import briefs  # noqa: E402  (the scoring brief, blind, and the separate comparison brief)
 
@@ -681,20 +685,32 @@ def cmd_review(args):
     runnable = [r for r in chosen if r.get("kind") == "command"]
     agents = [r for r in chosen if r.get("kind") != "command"]
     chrome = work = None
-    if any(r.get("shared_chrome") for r in runnable):
-        chrome, work = shared_chrome(args.cdp_port)
-    results = {}
+    needs_chrome = any(r.get("shared_chrome") for r in runnable)
+    wait_sec = 60 * max(float(r.get("timeout_minutes", 60)) for r in runnable) if runnable else 60
+    got_chrome = True
+    if needs_chrome:
+        got_chrome = locks.acquire("chrome", "multi-evaluator review", wait=wait_sec)
+        if not got_chrome:
+            held = locks.holder("chrome") or {}
+            raise SystemExit("review gave up: chrome is still held by %s since %s" % (held.get("owner", "?"), held.get("since", "?")))
     try:
-        threads = [threading.Thread(target=run_reviewer, args=(p, n, r, args.cdp_port if r.get("shared_chrome") else None,
-                                                               results)) for r in runnable]
-        for t in threads:
-            t.start()
-        for t in threads:
-            t.join()
+        if needs_chrome:
+            chrome, work = shared_chrome(args.cdp_port)
+        results = {}
+        try:
+            threads = [threading.Thread(target=run_reviewer, args=(p, n, r, args.cdp_port if r.get("shared_chrome") else None,
+                                                                   results)) for r in runnable]
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join()
+        finally:
+            if chrome:
+                chrome.kill()
+                shutil.rmtree(work, ignore_errors=True)
     finally:
-        if chrome:
-            chrome.kill()
-            shutil.rmtree(work, ignore_errors=True)
+        if needs_chrome and got_chrome:
+            locks.release("chrome")
     for r in agents:
         if r.get("kind") == "chat":
             results[r["id"]] = {"ok": None, "waiting": chat_instructions(p, n, r)}

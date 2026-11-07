@@ -19,6 +19,28 @@ import crew_store as st
 
 SMALL_WORDS = ("typo", "rename", "lint", "format", "bump", "comment", "docstring", "wording", "copy", "spelling", "label")
 TOP_WORDS = ("design", "architecture", "redesign", "rethink", "strategy", "model the", "first principles", "security review")
+CHROME_MARKERS = ("chrome", "drive.mjs", "eval_loop", "away.py render", "selftest", "run_all")
+
+
+def job_needs_chrome(job, project):
+    if str(job.get("source", "")).startswith("evaluator"):
+        return True
+    parts = []
+    if project.get("test"):
+        parts.append(project["test"])
+    for d in job.get("done", []):
+        parts.append(d)
+    parts.append(job.get("source", ""))
+    blob = " ".join(parts).lower()
+    return any(m in blob for m in CHROME_MARKERS)
+
+
+def apply_needs(job, project):
+    needs = set(job.get("needs") or [])
+    if job_needs_chrome(job, project):
+        needs.add("chrome")
+    if needs:
+        job["needs"] = sorted(needs)
 
 
 def guess_tier(text):
@@ -64,11 +86,13 @@ def jobs_from_plan(p, src):
         if len(item) < 8:
             continue
         tier = src.get("tier") or guess_tier(item)
-        jobs.append(st.new_job(p["id"], item, tier=tier, files=mentioned_files(item, p["path"]),
-                              done=done_checks(p, ["The plan item is done and ticked in %s" % src["file"]]),
-                              source="plan:%s" % src["file"], key="plan:" + item, stream=p["stream"],
-                              runner=src.get("runner", "auto"),
-                              context="From the plan %s. Tick the item in the plan when it is done." % src["file"]))
+        j = st.new_job(p["id"], item, tier=tier, files=mentioned_files(item, p["path"]),
+                       done=done_checks(p, ["The plan item is done and ticked in %s" % src["file"]]),
+                       source="plan:%s" % src["file"], key="plan:" + item, stream=p["stream"],
+                       runner=src.get("runner", "auto"),
+                       context="From the plan %s. Tick the item in the plan when it is done." % src["file"])
+        apply_needs(j, p)
+        jobs.append(j)
         if len(jobs) >= limit:
             break
     return jobs, ""
@@ -137,13 +161,15 @@ def jobs_from_evaluator(p, src):
         title = "Fix journey %s (%s): %d review finding%s from %s" % (jid, worst["journey_name"] or "unnamed", len(fixes),
                                                                       "" if len(fixes) == 1 else "s", rname)
         tier = src.get("tier") or ("fast" if worst["severity"] == "high" or worst["agreed"] else "small")
-        jobs.append(st.new_job(p["id"], title, tier=tier, source="evaluator:%s/%s" % (os.path.basename(folder), rname),
-                              key="eval:%s:%s:%s" % (folder, rname, jid), stream=p["stream"], runner=src.get("runner", "auto"),
-                              batch="eval-%s-%s" % (os.path.basename(folder), rname),
-                              done=done_checks(p, ["Each finding below is fixed and visible in the product"]),
-                              context="Review findings for journey %s, ranked (agreed by every reviewer first):\n- %s\n"
-                                      "Then write the next round's changes.md in %s (one bullet per change)." % (
-                                          jid, "\n- ".join(lines), folder)))
+        j = st.new_job(p["id"], title, tier=tier, source="evaluator:%s/%s" % (os.path.basename(folder), rname),
+                       key="eval:%s:%s:%s" % (folder, rname, jid), stream=p["stream"], runner=src.get("runner", "auto"),
+                       batch="eval-%s-%s" % (os.path.basename(folder), rname),
+                       done=done_checks(p, ["Each finding below is fixed and visible in the product"]),
+                       context="Review findings for journey %s, ranked (agreed by every reviewer first):\n- %s\n"
+                               "Then write the next round's changes.md in %s (one bullet per change)." % (
+                                   jid, "\n- ".join(lines), folder))
+        apply_needs(j, p)
+        jobs.append(j)
     return jobs, ""
 
 
@@ -164,6 +190,7 @@ def jobs_from_tests(p, src):
                      done=["The tests pass::%s" % cmd], source="tests", key="tests:%s" % cmd, stream=p["stream"],
                      runner=src.get("runner", "auto"), files=mentioned_files(tail, p["path"]),
                      context="The test command exited %d. The last lines of its output:\n%s" % (r.returncode, tail))
+    apply_needs(job, p)
     return [job], ""
 
 
@@ -177,6 +204,7 @@ def jobs_from_daily(p, src, today):
                      key="daily:%s:%s" % (jid, today), stream=p["stream"], context=src.get("prompt", ""),
                      done=list(src.get("done") or ["The output of this daily job is in the project as a draft"]))
     job["not_before"] = "%sT%s" % (today, src.get("at", "00:00"))
+    apply_needs(job, p)
     return [job], ""
 
 

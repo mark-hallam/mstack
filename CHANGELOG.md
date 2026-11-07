@@ -4,6 +4,8 @@ Every release of mStack, newest first. Dates are the day the release was made.
 
 ## Unreleased
 
+- crew: jobs declare shared resources such as `chrome`; crew and multi-evaluator review take a lock under
+  `~/.mstack/locks` so a done check that runs the full test suite does not clash with a review on the same Mac.
 - multi-evaluator: each reviewer's brief now gets a port nothing on the computer already holds, so two
   reviews running on one computer (or a leftover server) no longer hand out the same port. The self-test
   checks the port it was given, not a fixed one.
