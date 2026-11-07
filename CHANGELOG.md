@@ -4,6 +4,9 @@ Every release of mStack, newest first. Dates are the day the release was made.
 
 ## Unreleased
 
+- multi-evaluator: capture records the product git commit in each round's views.json; status and the report
+  show it, warn when changes.md says nothing changed but the build moved, and note when two clean rounds
+  share the same commit.
 - multi-evaluator: readiness, status and the report judge each round by the reviewers that round had briefs
   for, not today's config alone, so a reviewer added later is not treated as missing from earlier rounds.
 

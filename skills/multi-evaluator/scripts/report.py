@@ -42,6 +42,21 @@ def comparisons_html(p, n, order, info):
             "</p><div class='two'>%s</div>" % "".join(out))
 
 
+def parse_views_json(raw):
+    if not raw:
+        return None, None
+    data = json.loads(raw)
+    if isinstance(data, list):
+        return data, None
+    if isinstance(data, dict):
+        return data.get("views") or [], data.get("build")
+    return [], None
+
+
+def short_commit(commit):
+    return commit[:7] if commit else None
+
+
 def load_round(p, n):
     base = p.rdir(n)
 
@@ -53,10 +68,14 @@ def load_round(p, n):
             return fh.read()
 
     crit = text("criteria.json")
-    views = text("views.json")
+    views_raw = text("views.json")
+    if views_raw:
+        views, build = parse_views_json(views_raw)
+    else:
+        views, build = p.views(), None
     return {"n": n, "verdicts": p.verdicts(n), "changes": text("changes.md"), "people": text("people.md"),
             "criteria": json.loads(crit) if crit else p.criteria(n),
-            "views": json.loads(views) if views else p.views(), "shots": p.shots(n)}
+            "views": views, "build": build, "shots": p.shots(n)}
 
 
 def reviewer_info(p, rs):
@@ -97,7 +116,11 @@ def trend_svg(rs, order, info):
         parts.append('<line x1="%d" x2="%d" y1="%.1f" y2="%.1f" class="grid"/><text x="%d" y="%.1f" class="ax">%d</text>'
                      % (left, w - 20, y(s), y(s), left - 8, y(s) + 4, s))
     for i, r in enumerate(rs):
-        parts.append('<text x="%.1f" y="%d" class="ax mid">Round %d</text>' % (x(i), h - 10, r["n"]))
+        label = "Round %d" % r["n"]
+        sc = short_commit((r.get("build") or {}).get("commit"))
+        if sc:
+            label += " %s" % sc
+        parts.append('<text x="%.1f" y="%d" class="ax mid">%s</text>' % (x(i), h - 10, esc(label)))
     for who in order:
         colour = info[who]["colour"]
         pts = [(x(i), y(r["verdicts"][who]["overall"]), r["verdicts"][who]["overall"]) for i, r in enumerate(rs)
@@ -273,6 +296,46 @@ def md_list(text):
     return "<ul>%s</ul>" % "".join("<li>%s</li>" % esc(i) for i in items) if items else "<p class='sub'>Not written.</p>"
 
 
+def build_note(r, prev):
+    b = r.get("build") or {}
+    commit = b.get("commit")
+    if not commit:
+        return ""
+    short = short_commit(commit)
+    if prev:
+        pb = prev.get("build") or {}
+        if pb.get("commit") == commit and not b.get("dirty") and not pb.get("dirty"):
+            return "<p class='small sub'>Build %s: same build as round %d.</p>" % (esc(short), prev["n"])
+    extra = " (dirty working tree)" if b.get("dirty") else ""
+    return "<p class='small sub'>Build %s%s.</p>" % (esc(short), extra)
+
+
+def build_warning(r, prev):
+    if not prev:
+        return ""
+    b, pb = r.get("build") or {}, prev.get("build") or {}
+    commit, prev_commit = b.get("commit"), pb.get("commit")
+    if not commit or not prev_commit or commit == prev_commit:
+        return ""
+    if not re.search(r"no product change|no change", r.get("changes", ""), re.I):
+        return ""
+    return ("<p class='banner warn'><b>Warning:</b> the change note says nothing changed, but the build moved "
+            "from %s to %s.</p>" % (esc(short_commit(prev_commit)), esc(short_commit(commit))))
+
+
+def what_changed_rounds(rs):
+    bits = []
+    for i, r in enumerate(rs):
+        prev = rs[i - 1] if i else None
+        heading = "Round %d" % r["n"]
+        sc = short_commit((r.get("build") or {}).get("commit"))
+        if sc:
+            heading += " (%s)" % sc
+        bits.append("<h3 class='grp'>%s</h3>%s%s%s" % (
+            esc(heading), build_note(r, prev), build_warning(r, prev), md_list(r["changes"])))
+    return "".join(bits) if bits else "<p class='sub'>Not written.</p>"
+
+
 def proposals(p, cur, order, info):
     out = []
     who_round = set(readiness.round_reviewers(p, cur["n"]))
@@ -436,7 +499,7 @@ def build(p):
             "for like. AI scores are a strong signal, not proof: real first-time people are the final test.</p>%s%s"
             "%s<h2>Score trend</h2><div class='card'>%s%s</div>"
             "<h2>Each journey, this round against the last</h2><div class='card'>%s</div>"
-            "<h2>What changed going into round %d</h2><div class='card'>%s</div>%s"
+            "<h2>What changed each round</h2><div class='card'>%s</div>%s"
             "%s<h2>What the reviewers propose next</h2>%s%s"
             "<h2>The criteria each round used</h2><div class='card'><p class='small sub'>The floor, plus each stage "
             "added as the product matured (highlighted).</p>%s</div>%s"
@@ -444,7 +507,7 @@ def build(p):
             "<p class='small sub'>Made with mStack's multi-evaluator skill.</p></div></body></html>") % (
         esc(title), CSS, esc(p.name), (". " + esc(note)) if note else "", esc(names), kpis, banner,
         do_next(p, cur, order, info), trend_svg(rs, order, info), trend_joined_note(order, info),
-        journey_table(p, rs, order, info), cur["n"], md_list(cur["changes"]),
+        journey_table(p, rs, order, info), what_changed_rounds(rs),
         comparisons_html(p, cur["n"], order, info), noise_card(p, rs, order, info), proposals(p, cur, order, info),
         fixes_detail(cur, order, info), criteria_table(rs), people, before_after(p, rs))
     path = os.path.join(p.dir, "report.html")

@@ -38,6 +38,7 @@ import threading
 import time
 import urllib.error
 import urllib.request
+from datetime import datetime, timezone
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -148,6 +149,39 @@ class Project(object):
         if not os.path.isdir(sdir):
             return []
         return sorted(set(f[:-4] for f in os.listdir(sdir) if f.endswith(".png")))
+
+
+def _build_captured_time():
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def product_build(cwd):
+    """Git HEAD of the product folder at capture time. Never raises."""
+    captured = _build_captured_time()
+    if not cwd:
+        return {"commit": None, "captured": captured}
+    path = os.path.abspath(cwd)
+    head = subprocess.run(["git", "-C", path, "rev-parse", "HEAD"], capture_output=True, text=True)
+    if head.returncode != 0:
+        return {"commit": None, "captured": captured}
+    commit = head.stdout.strip()
+    status = subprocess.run(["git", "-C", path, "status", "--porcelain"], capture_output=True, text=True)
+    dirty = bool(status.stdout.strip()) if status.returncode == 0 else False
+    return {"commit": commit, "dirty": dirty, "captured": captured}
+
+
+def round_build(p, n):
+    path = p.rdir(n, "views.json")
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path, encoding="utf-8") as fh:
+            doc = json.load(fh)
+    except ValueError:
+        return None
+    if isinstance(doc, dict) and "build" in doc:
+        return doc["build"]
+    return None
 
 
 def tmp_base():
@@ -331,11 +365,19 @@ next_step = readiness.next_step
 def cmd_status(args):
     p = Project(args.dir)
     n = p.latest()
+    rounds = []
+    for k in p.round_numbers():
+        st = round_state(p, k)
+        b = round_build(p, k)
+        if b is not None:
+            st = dict(st)
+            st["build"] = b
+        rounds.append(st)
     data = {"project": p.name, "dir": p.dir, "round": n,
             "reviewers": [dict(id=r["id"], name=r.get("name", r["id"]), kind=r.get("kind", "agent")) for r in p.reviewers()],
             "journeys": [dict(id=j["id"], name=j["name"]) for j in p.journeys()],
             "criteria": [c["name"] for c in p.criteria(n)],
-            "rounds": [round_state(p, k) for k in p.round_numbers()],
+            "rounds": rounds,
             "next": next_step(p)}
     if args.json:
         print(json.dumps(data, indent=2))
@@ -370,8 +412,9 @@ def cmd_capture(args):
     only = set(filter(None, (args.only or "").split(",")))
     results = []
     views = p.views()
+    build = product_build((p.cfg.get("target") or {}).get("cwd"))
     with open(p.rdir(n, "views.json"), "w", encoding="utf-8") as fh:
-        json.dump(views, fh, indent=2)
+        json.dump({"views": views, "build": build}, fh, indent=2)
     for v in views:
         if only and v["id"] not in only:
             continue
