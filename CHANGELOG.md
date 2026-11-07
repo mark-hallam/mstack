@@ -4,6 +4,9 @@ Every release of mStack, newest first. Dates are the day the release was made.
 
 ## Unreleased
 
+- crew: a small job with one done check and no files named now briefs the runner to run that command
+  only, instead of searching the repository. The digest marks such a job as heavy for its tier when it
+  uses more than 200,000 tokens.
 - crew: when a job's done check fails, the check output is saved under the run folder and the blocked note
   and digest name the file so you do not have to run the check again.
 - multi-evaluator: readiness, status and the report judge each round by the reviewers that round had briefs

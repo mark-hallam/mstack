@@ -84,11 +84,20 @@ def build_prompt(cfg, p, job, workdir, branch):
     lines = ["You are one worker in the person's crew, finishing one job in the background while they are away.",
              "", "Project: %s (%s)" % (p["id"], workdir), "Branch: %s" % (branch or "none: in place, commit nothing"),
              "", "Outcome: %s" % job["outcome"], "", "Done looks like (prove each one):"]
-    for d in job.get("done", []):
+    done = job.get("done", [])
+    for d in done:
         what, _, cmd = d.partition("::")
         lines.append("- %s%s" % (what, (" (check: %s)" % cmd) if cmd else ""))
-    lines += ["", "Files for this job (start here, read nothing else unless these point to it):"]
-    lines += ["- %s" % f for f in files] or ["- none named: find the few files the outcome needs, then stop looking"]
+    all_cmds = done and all(d.partition("::")[2].strip() for d in done)
+    if job.get("tier") == "small" and not files and all_cmds:
+        lines += ["", "Do exactly this:"]
+        for d in done:
+            _, _, cmd = d.partition("::")
+            lines.append("- Run exactly: `%s` from the project folder. Report its last lines and whether it passed. "
+                           "Read no files unless the command's output names one you must look at." % cmd.strip())
+    else:
+        lines += ["", "Files for this job (start here, read nothing else unless these point to it):"]
+        lines += ["- %s" % f for f in files] or ["- none named: find the few files the outcome needs, then stop looking"]
     if job.get("context"):
         lines += ["", "Context:", job["context"]]
     if p.get("notes"):
