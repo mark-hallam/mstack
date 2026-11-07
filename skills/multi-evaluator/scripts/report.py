@@ -14,6 +14,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import readiness  # noqa: E402
 from report_audit import measured  # noqa: E402
+import regrade  # noqa: E402
 from report_parts import (  # noqa: E402
     CSS,
     before_after,
@@ -89,7 +90,7 @@ def load_round(p, n):
         views, build = p.views(), None
     return {"n": n, "verdicts": p.verdicts(n), "changes": text("changes.md"), "people": text("people.md"),
             "criteria": json.loads(crit) if crit else p.criteria(n),
-            "views": views, "build": build, "shots": p.shots(n)}
+            "views": views, "build": build, "shots": p.shots(n), "regrade": regrade.load_round(p, n)}
 
 
 def reviewer_heading(r, verdict=None):
@@ -191,7 +192,7 @@ def build(p):
             "<p class='small sub'>Made with mStack's multi-evaluator skill.</p></div></body></html>") % (
         esc(title), CSS, esc(p.name), (". " + esc(note)) if note else "", esc(names), kpis, banner,
         do_next(p, cur, order, info), trend_svg(rs, order, info), trend_joined_note(order, info),
-        journey_table(p, rs, order, info), measured(p, rs), what_changed_rounds(rs),
+        journey_table(p, rs, order, info), measured(p, rs), what_changed_rounds(rs, info),
         comparisons_html(p, cur["n"], order, info), noise_card(p, rs, order, info), proposals(p, cur, order, info),
         fixes_detail(cur, order, info), criteria_table(rs), people, before_after(p, rs))
     path = os.path.join(p.dir, "report.html")

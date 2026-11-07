@@ -11,7 +11,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SKILL = os.path.dirname(HERE)
 CONFIG_NAME = "mstack-eval.json"
 DRIVER = os.path.join(HERE, "drive.mjs")
-SEVERITIES = ("high", "medium", "low")
+SEVERITIES = ("blocker", "high", "medium", "low")
 
 
 def _build_captured_time():

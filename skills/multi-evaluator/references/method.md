@@ -43,6 +43,21 @@ a fix must respect (the config's `rules`) are listed apart and marked "not score
 last round, which is useful for catching regressions, is a separate labelled pass given to the reviewer
 after its verdict is saved, and it never changes a score. The blind pass is the score of record.
 
+## Re-grading last round's fixes
+
+A score moving tells you something changed, not whether the fixes you made are the ones that worked. So from
+round 2 the compare pass lists last round's proposed fixes by number and the reviewer marks each one done,
+partly, not, regressed or not testable, quoting the exact words on screen. A fix marked "partly" or "not"
+goes round again, and one marked "regressed" is the first thing to look at. This stays out of the blind
+score, like the rest of the comparison.
+
+## Blockers
+
+Not every problem weighs the same. A blocker stops the person on the main path or breaks a safety or trust
+rule, and it is its own severity above high. A journey with a blocker cannot score above 5, a round with an
+open blocker is never ready, and "Do these next" lists blockers first, so a polished score can never hide
+a journey that does not work.
+
 ## The noise check
 
 A model judge does not give the same score twice: on an unchanged product a score moves a point or two
@@ -89,7 +104,7 @@ that round, and the report shows which criteria each round used.
 
 - every journey scores 9 or better from every counting reviewer (a web chat reviewer that only saw
   screenshots does not count);
-- no high-severity fix is open;
+- no blocker and no high-severity fix is open;
 - the reviewers are within 1 point of each other on every journey;
 - it held last round too, so one lucky round does not end the loop.
 

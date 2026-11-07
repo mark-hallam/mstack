@@ -8,6 +8,7 @@ import time
 
 import briefs  # noqa: E402
 import readiness  # noqa: E402
+import regrade  # noqa: E402
 from eval_common import SEVERITIES, SKILL, fill
 
 
@@ -89,14 +90,17 @@ def check_verdict(p, v, rid=None, n=None):
                          % (jid, len(fixes), " is" if len(fixes) == 1 else "es are"))
         for f in fixes:
             if not isinstance(f, dict) or f.get("severity") not in SEVERITIES or not f.get("fix"):
-                probs.append("journey %s: each fix needs a severity (high, medium or low) and a fix." % jid)
+                probs.append("journey %s: each fix needs a severity (blocker, high, medium or low) and a fix." % jid)
                 break
+        if num(j.get("score")) and j["score"] > 5 and any(isinstance(f, dict) and f.get("severity") == "blocker" for f in fixes):
+            probs.append("journey %s: a journey with a blocker cannot score above 5 (it scored %s); lower the score or "
+                         "change the severity." % (jid, j["score"]))
     missing = [j["id"] for j in p.journeys() if j["id"] not in seen]
     if p.cfg.get("control") and readiness.CONTROL not in seen:
         missing.append(readiness.CONTROL)
     if missing:
         probs.append("journeys not scored: %s." % ", ".join(str(m) for m in missing))
-    for k in ("top_fixes", "broken"):
+    for k in ("top_fixes", "broken", "could_not_test", "did_not_touch"):
         if k in v and not isinstance(v[k], list):
             probs.append("%s must be a list." % k)
     return probs
@@ -187,6 +191,8 @@ def cmd_verdict(args):
             probs.append("a comparison reply is a JSON object with a \"compare\" object (improved, regressed, unchanged).")
         elif args.reviewer not in p.verdicts(n):
             probs.append("save %s's verdict for round %d first: the comparison pass comes after the score of record." % (args.reviewer, n))
+        else:
+            probs += regrade.check_reply(p, n, args.reviewer, v)
         if probs:
             say(args, {"ok": False, "problems": probs}, "Not saved:\n- " + "\n- ".join(probs))
             sys.exit(1)

@@ -6,6 +6,9 @@ Every release of mStack, newest first. Dates are the day the release was made.
 
 - multi-evaluator: every capture now measures each view (length, repeated phrases, contrast, alt text, sideways scroll,
   reduce motion, page weight, heading skips) and the report shows the numbers round by round under "Measured".
+- multi-evaluator: the compare pass re-grades last round's numbered fixes (done, partly, not, regressed, not
+  testable, with the exact words seen), there is a new "blocker" severity that caps a journey at 5 and stops a
+  round being ready, journeys can name a persona, and replies can list what could not be tested.
 
 ## 0.5.0, 7 November 2026
 
