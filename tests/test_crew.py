@@ -227,6 +227,35 @@ def main():
         check(r_pass["state"] == "done", "a passing done check lets the job finish")
         check(os.path.isfile(pass_path) and "marker-ok" in open(pass_path, encoding="utf-8").read(),
               "passed check output is in checks/1-passed.txt")
+        # small job with one done command: the brief says run exactly, not find files
+        one_cmd = js("add", "proj", "Run the test suite", "--tier", "small", "--done",
+                     "tests pass::python3 tests/run_all.py", "--outcome", "report whether tests pass, change nothing")
+        p_path = one_cmd["job"]["id"]
+        dr = js("run", p_path, "--dry-run")
+        prompt_text = open(dr["prompt"], encoding="utf-8").read()
+        check("Run exactly:" in prompt_text and "python3 tests/run_all.py" in prompt_text,
+              "a small one-command dry run brief names the command verbatim")
+        check("find the few files" not in prompt_text,
+              "a small one-command dry run brief does not tell the runner to find files")
+        named = js("add", "proj", "Edit the plan", "--tier", "small", "--file", "docs/PLAN.md", "--outcome", "fix typo")
+        dr2 = js("run", named["job"]["id"], "--dry-run")
+        prompt2 = open(dr2["prompt"], encoding="utf-8").read()
+        check("docs/PLAN.md" in prompt2 and "Files for this job" in prompt2,
+              "a small job with files named still lists those files in the brief")
+        # digest marks a small job that used more than 200k tokens as heavy for its tier
+        q_path = os.path.join(home, "crew", "queue.json")
+        q_heavy = json.load(open(q_path))
+        scripts = os.path.join(ROOT, "skills", "crew", "scripts")
+        if scripts not in sys.path:
+            sys.path.insert(0, scripts)
+        import crew_digest as dg
+        import crew_store as cst
+        heavy_j = cst.new_job("proj", "Token heavy small job", tier="small", done=["x::true"])
+        heavy_j.update(state="done", finished=cst.stamp(), usage={"total_tokens": 250000}, evidence=["ok"], title=heavy_j["title"])
+        q_heavy["jobs"].append(heavy_j)
+        json.dump(q_heavy, open(q_path, "w"))
+        html_heavy = dg.build_html(dg.gather(cfg, q_heavy))
+        check("heavy for its tier" in html_heavy, "the digest marks a small job over 200k tokens as heavy for its tier")
         # the digest
         d = js("digest", "--no-send")
         html = open(d["html"]).read()
