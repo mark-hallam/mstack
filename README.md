@@ -136,7 +136,8 @@ and puts the 3 to 5 key points in the message itself. Never just a path.
 
 Only measured ones, each with its date and source in [docs/evidence.md](docs/evidence.md):
 
-- **6 of 6** plain phrases routed to the right skill on a clean install (7 November 2026).
+- **6 of 6** plain phrases routed to the right skill on a clean install of 0.4.1, and **8 of 8** on 0.6.0 with two
+  phrases for the new skill (both 7 November 2026).
 - **3 of 3** AI makers (Anthropic, OpenAI, xAI), reviewing blind in a real browser, found the same bug in
   one review round of a real app. Their overall scores still differed by up to 2.7 points, which is why the
   loop needs them to agree before it says ready.

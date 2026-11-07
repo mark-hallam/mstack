@@ -23,6 +23,12 @@ what is public is the method and the result. Where a number is not public, this 
   to crew instead of outcome-first, which is defensible (both run work while the person is away, and ping-me
   is always on). Recorded as it happened.
 
+- Rerun at about 23:15 on the released 0.6.0, installed from GitHub into a fresh profile, with two new phrases for
+  the sixth skill ("I'm starting a new app and have no idea what it should look like yet. Show me a few directions so
+  I can pick one" and "Keep the look we already have, but try two or three different layouts for the home screen and
+  let me choose"): **eight of eight picked the right skill**, both new ones design-direction, and the "heading out,
+  run the tests" phrase went to ping-me, which is the expected pair with outcome-first.
+
 ## 7 November 2026: one review round with three AI makers
 
 A real product (the author's own app) was reviewed in round 5 of an existing multi-evaluator loop, with
