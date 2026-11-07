@@ -4,6 +4,9 @@ Every release of mStack, newest first. Dates are the day the release was made.
 
 ## Unreleased
 
+- multi-evaluator: the journey driver's select step finds an option by its value or its visible text, fires
+  the input and change events a real choice fires, and says NOT FOUND with the options when nothing matches,
+  instead of silently clearing the choice.
 - crew: a small job with one done check and no files named now briefs the runner to run that command
   only, instead of searching the repository. The digest marks such a job as heavy for its tier when it
   uses more than 200,000 tokens.

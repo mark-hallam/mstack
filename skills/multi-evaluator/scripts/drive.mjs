@@ -11,7 +11,7 @@
 //              {"do": "click", "sel": "#save"},              // or by CSS selector
 //              {"do": "type", "sel": "input[name=q]", "text": "hello"},
 //              {"do": "key", "key": "Tab"},                  // Tab, Enter, Escape, ArrowDown, ArrowUp, Space
-//              {"do": "select", "sel": "select", "value": "weekly"},
+//              {"do": "select", "sel": "select", "value": "weekly"},   // an option by its value or its visible text
 //              {"do": "wait", "ms": 600},
 //              {"do": "shot", "name": "after-save"},         // a named screenshot (one is taken after every step anyway)
 //              {"do": "focus"},                              // say which element has keyboard focus
@@ -174,7 +174,15 @@ try {
       res = await ev(`(()=>{const e=document.querySelector(${JSON.stringify(step.sel)}); if(!e) return 'NOT FOUND'; e.focus(); e.value=${JSON.stringify(step.text)}; e.dispatchEvent(new Event('input',{bubbles:true})); e.dispatchEvent(new Event('change',{bubbles:true})); return 'typed'})()`);
       await sleep(step.ms || 400);
     } else if (step.do === 'select') {
-      res = await ev(`(()=>{const e=document.querySelector(${JSON.stringify(step.sel)}); if(!e) return 'NOT FOUND'; e.value=${JSON.stringify(step.value)}; e.dispatchEvent(new Event('change',{bubbles:true})); return 'selected '+e.value})()`);
+      // match an option by its value or its visible text (trimmed, case does not matter), fire the events a
+      // real choice fires, and say NOT FOUND with the options when nothing matches instead of clearing the choice
+      res = await ev(`(()=>{const e=document.querySelector(${JSON.stringify(step.sel)}); if(!e) return 'NOT FOUND';
+        const want=String(${JSON.stringify(step.value)}).trim().toLowerCase();
+        const opts=[...e.querySelectorAll('option')];
+        const o=opts.find(o=>o.value===${JSON.stringify(step.value)})||opts.find(o=>o.value.trim().toLowerCase()===want)||opts.find(o=>o.textContent.trim().toLowerCase()===want);
+        if(!o) return 'NOT FOUND: no option matches '+JSON.stringify(${JSON.stringify(step.value)})+'; options: '+opts.map(o=>JSON.stringify(o.textContent.trim())).join(', ');
+        e.value=o.value; e.dispatchEvent(new Event('input',{bubbles:true})); e.dispatchEvent(new Event('change',{bubbles:true}));
+        return 'selected '+JSON.stringify(o.textContent.trim())+' (value '+JSON.stringify(o.value)+')'})()`);
       await sleep(step.ms || 900);
     } else if (step.do === 'key') {
       const [code, key] = KEYS[step.key] || [0, step.key];
