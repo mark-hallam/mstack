@@ -15,6 +15,7 @@
 //              {"do": "wait", "ms": 600},
 //              {"do": "shot", "name": "after-save"},         // a named screenshot (one is taken after every step anyway)
 //              {"do": "focus"},                              // say which element has keyboard focus
+//              {"do": "audit"},                             // measure the page: writes <out>/audit.json (see audit.mjs)
 //              {"do": "eval", "js": "document.title"}]}     // any read only check
 //
 // Output: <out>/NN-<do>.png for every step, and <out>/log.txt (each step's result, the visible text,
@@ -31,6 +32,7 @@ import fs from 'node:fs';
 import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
+import { runAudit } from './audit.mjs';
 
 const [, , stepsFile, out] = process.argv;
 if (!stepsFile || !out) { console.error('usage: node drive.mjs <steps.json> <out-folder>'); process.exit(2); }
@@ -194,6 +196,10 @@ try {
     } else if (step.do === 'wait') { await sleep(step.ms || 500); res = 'waited'; }
     else if (step.do === 'focus') res = 'focus: ' + (await ev(focusOf));
     else if (step.do === 'eval') res = JSON.stringify(await ev(step.js));
+    else if (step.do === 'audit') {   // measure the page and write audit.json (read only)
+      try { fs.writeFileSync(path.join(out, 'audit.json'), JSON.stringify(await runAudit(send, ev, spec.scheme, sleep, vp.w), null, 2)); res = 'audit saved'; }
+      catch (e) { res = 'audit failed: ' + e.message; }
+    }
     else if (step.do === 'shot') res = 'screenshot';
     else res = 'NOT FOUND: unknown step "' + step.do + '"';
     if (String(res).startsWith('NOT FOUND')) failed = true;

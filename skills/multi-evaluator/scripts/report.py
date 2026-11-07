@@ -13,6 +13,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import readiness  # noqa: E402
+from report_audit import measured  # noqa: E402
 from report_parts import (  # noqa: E402
     CSS,
     before_after,
@@ -181,7 +182,7 @@ def build(p):
             "means ready). The same screens are captured the same way every round, so before and after compare like "
             "for like. AI scores are a strong signal, not proof.</p>%s%s"
             "%s<h2>Score trend</h2><div class='card'>%s%s</div>"
-            "<h2>Each journey, this round against the last</h2><div class='card'>%s</div>"
+            "<h2>Each journey, this round against the last</h2><div class='card'>%s</div>%s"
             "<h2>What changed each round</h2><div class='card'>%s</div>%s"
             "%s<h2>What the reviewers propose next</h2>%s%s"
             "<h2>The criteria each round used</h2><div class='card'><p class='small sub'>The floor, plus each stage "
@@ -190,7 +191,7 @@ def build(p):
             "<p class='small sub'>Made with mStack's multi-evaluator skill.</p></div></body></html>") % (
         esc(title), CSS, esc(p.name), (". " + esc(note)) if note else "", esc(names), kpis, banner,
         do_next(p, cur, order, info), trend_svg(rs, order, info), trend_joined_note(order, info),
-        journey_table(p, rs, order, info), what_changed_rounds(rs),
+        journey_table(p, rs, order, info), measured(p, rs), what_changed_rounds(rs),
         comparisons_html(p, cur["n"], order, info), noise_card(p, rs, order, info), proposals(p, cur, order, info),
         fixes_detail(cur, order, info), criteria_table(rs), people, before_after(p, rs))
     path = os.path.join(p.dir, "report.html")

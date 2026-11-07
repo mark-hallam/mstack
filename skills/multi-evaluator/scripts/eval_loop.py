@@ -42,6 +42,7 @@ if _LOCKS not in sys.path:
 import locks  # noqa: E402
 import readiness  # noqa: E402  (the stopping rule, the noise check and "do these next")
 import briefs  # noqa: E402  (the scoring brief, blind, and the separate comparison brief)
+import audit  # noqa: E402  (the measured audit that capture saves for every view)
 from eval_common import (  # noqa: E402
     CONFIG_NAME,
     SKILL,
@@ -253,6 +254,7 @@ def cmd_capture(args):
         try:
             with Target(p, v.get("target")) as t:
                 steps = fill(v.get("steps") or [{"do": "goto", "url": "{url}"}], dict(t.values, app=t.url))
+                steps = steps + [{"do": "audit"}]       # measured after the view's own steps
                 spec = {"viewport": v["viewport"], "scheme": v.get("scheme", "light"), "steps": steps,
                         "thumb": 640 if v["viewport"]["w"] > 600 else 300}
                 run = drive(spec, work)
@@ -265,7 +267,10 @@ def cmd_capture(args):
             with open(os.path.join(out, v["id"] + ".txt"), "w", encoding="utf-8") as fh:
                 fh.write(log)
             ok = "NOT FOUND" not in log
-            results.append({"view": v["id"], "ok": ok})
+            measured = audit.read_run(run)               # None when the audit step failed; capture still succeeds
+            if measured is not None:
+                shutil.copyfile(os.path.join(run, "audit.json"), os.path.join(out, v["id"] + ".audit.json"))
+            results.append({"view": v["id"], "ok": ok, "audit": measured})
             if not args.json:
                 print("%-24s %s" % (v["id"], "ok" if ok else "captured, but a step did not find its target"), flush=True)
         finally:

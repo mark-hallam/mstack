@@ -51,6 +51,14 @@ change, as journey "control". How far that score moves is that reviewer's noise.
 band, and a journey change no bigger than it is marked "within noise" and does not drive the next round's
 work. A real improvement is one that clears the band.
 
+## Measured, not estimated
+
+Reviewers estimate things that can be measured, so every capture measures each view with the same script and the
+report shows the numbers round by round: how many screens long the page is, phrases repeated three or more times,
+text that fails contrast, images without alt text, sideways scroll at phone width, endless animation (and whether
+reduce motion stops it), page weight and skipped heading levels. A measured number is a fact beside the opinions,
+so progress between rounds does not depend on how a reviewer felt that day.
+
 ## Why "if fixed"
 
 The gap between a journey's score and its "if fixed" score says how much the proposed fixes are worth. A

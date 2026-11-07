@@ -61,6 +61,11 @@ LOOP brief --dir design-review                # blind scoring briefs in rounds/r
 LOOP review --dir design-review               # runs command line reviewers (Codex, Cursor, or any agent with a command line) in parallel; run it in the background
 ```
 
+Capture also measures every view with a read only audit (screens long, repeated phrases, text failing contrast,
+images without alt text, sideways scroll, endless animation with and without reduce motion, page weight, heading
+skips) and saves it as `rounds/r<N>/shots/<view id>.audit.json`. The numbers show in the report under "Measured",
+round by round, beside the reviewers' scores.
+
 At the same time, run every reviewer whose `kind` is `agent` yourself, in **fresh context**:
 
 - Claude Code: start a subagent (the Agent tool, general purpose) whose prompt is the full text of

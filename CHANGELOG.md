@@ -2,6 +2,11 @@
 
 Every release of mStack, newest first. Dates are the day the release was made.
 
+## Unreleased
+
+- multi-evaluator: every capture now measures each view (length, repeated phrases, contrast, alt text, sideways scroll,
+  reduce motion, page weight, heading skips) and the report shows the numbers round by round under "Measured".
+
 ## 0.5.0, 7 November 2026
 
 - multi-evaluator: the real-people step after "ready for people" is optional wording now; the stopping rule
