@@ -13,7 +13,7 @@ work up after a restart. Every command takes --json.
   ready <slug>                             the tasks that can run now, in parallel
   ask <slug> "<question>" [--default ...] [--why ...]   queue a decision that is genuinely the person's
   questions <slug>                         the open questions, to ask in one batch
-  answer <slug> <q-id> "<answer>"          or: answer <slug> --defaults (nobody can answer: take the defaults, noted)
+  answer <slug> <q-id> "<answer>"          or: answer <slug> --defaults (nobody can answer) or "defaults" (the person said so)
   note <slug> "<progress note>"
   check <slug>                             run every done check; achieved only when all pass with evidence
   verify <slug> <d-id> --evidence "..."    record evidence for a done check that has no command
@@ -22,6 +22,7 @@ work up after a restart. Every command takes --json.
   resume <slug>                            run the saved resume command (what the schedule calls)
 """
 import argparse
+import budget
 import datetime
 import json
 import os
@@ -136,7 +137,7 @@ def progress_md(o):
         lines += ["", "## Questions for the person", ""]
         for q in o["questions"]:
             lines.append("- %s: %s%s%s" % (q["id"], q["text"], " Default: %s." % q["default"] if q.get("default") else "",
-                                            " Answer: %s" % q["answer"] if q.get("answer") is not None else " (open)"))
+                " Answer: %s%s" % (q["answer"], " (taken by default)" if q.get("by_default") else "") if q.get("answer") is not None else " (open)"))
     if o.get("schedule"):
         lines += ["", "Resume scheduled for %s." % o["schedule"]["at"]]
     lines += ["", "## Log", ""] + ["- %s %s" % (n["at"], n["text"]) for n in o["log"][-30:]]
@@ -240,21 +241,25 @@ def cmd_ask(args):
 def cmd_questions(args):
     o = load(args.slug)
     qs = open_questions(o)
-    text = "\n".join("%s. %s%s" % (q["id"], q["text"], " (default: %s)" % q["default"] if q.get("default") else "")
-                     for q in qs) or "No open questions."
-    out(args, {"questions": qs}, text)
+    cap = budget.cap_from(os.path.join(os.path.dirname(home()), "config.json"))
+    ask, rest = budget.split(qs, cap)
+    text = budget.render(ask, rest, cap)
+    out(args, {"ask": ask, "by_default": rest, "cap": cap, "questions": qs}, text)
 
 
 def cmd_answer(args):
     o = load(args.slug)
-    if args.defaults:
+    word = (args.qid or "").lower() in ("defaults", "go", "all defaults", "use the defaults") and args.answer is None
+    if args.defaults or word:
         taken = []
         for q in open_questions(o):
             if q.get("default"):
-                q["answer"] = "%s (the default; nobody could answer, so it was taken and noted)" % q["default"]
+                q["answer"] = q["default"] if word else "%s (the default; nobody could answer, so it was taken and noted)" % q["default"]
+                q["by_default"] = word
                 taken.append(q["id"])
-        o["log"].append({"at": now(), "text": "Nobody could answer %s: the defaults were taken (%s)." % (
-            ", ".join(taken) or "the questions", ", ".join(taken) or "none had a default")})
+        who = ", ".join(taken) or "none had a default"
+        o["log"].append({"at": now(), "text": "The person chose the defaults for %s." % who if word else
+                         "Nobody could answer %s: the defaults were taken (%s)." % (", ".join(taken) or "the questions", who)})
         save(o)
         left = [q["id"] for q in open_questions(o)]
         out(args, dict(summary(o), taken=taken, still_open=left),
@@ -266,6 +271,7 @@ def cmd_answer(args):
     if not q:
         raise SystemExit("No question %r" % args.qid)
     q["answer"] = args.answer
+    q["by_default"] = False
     o["log"].append({"at": now(), "text": "%s answered: %s" % (q["id"], args.answer)})
     save(o)
     out(args, summary(o), "recorded. Next: %s" % next_step(o))
