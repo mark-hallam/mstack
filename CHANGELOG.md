@@ -6,6 +6,8 @@ Every release of mStack, newest first. Dates are the day the release was made.
 
 - crew: when a job's done check fails, the check output is saved under the run folder and the blocked note
   and digest name the file so you do not have to run the check again.
+- multi-evaluator: readiness, status and the report judge each round by the reviewers that round had briefs
+  for, not today's config alone, so a reviewer added later is not treated as missing from earlier rounds.
 
 ## 0.4.1, 5 November 2026
 
