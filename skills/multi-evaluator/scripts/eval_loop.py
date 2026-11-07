@@ -27,28 +27,29 @@ import argparse
 import json
 import os
 import re
-import shlex
 import shutil
-import signal
-import socket
 import subprocess
 import sys
 import tempfile
 import threading
 import time
-import urllib.error
-import urllib.request
-from datetime import datetime, timezone
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import readiness  # noqa: E402  (the stopping rule, the noise check and "do these next")
 import briefs  # noqa: E402  (the scoring brief, blind, and the separate comparison brief)
-
-SKILL = os.path.dirname(HERE)
-CONFIG_NAME = "mstack-eval.json"
-DRIVER = os.path.join(HERE, "drive.mjs")
-SEVERITIES = ("high", "medium", "low")
+from eval_common import (  # noqa: E402
+    CONFIG_NAME,
+    SKILL,
+    fill,
+    port_free,
+    product_build,
+    round_build,
+    tmp_base,
+)
+from serving import cmd_serve, find_chrome, shared_chrome  # noqa: E402
+from target import Target, drive  # noqa: E402
+from verdicts import cmd_validate, cmd_verdict, run_reviewer  # noqa: E402
 
 
 # ---------------------------------------------------------------- config and rounds
@@ -69,6 +70,9 @@ class Project(object):
 
     def reviewers(self):
         return self.cfg.get("reviewers", [])
+
+    def enabled_reviewers(self):
+        return [r for r in self.reviewers() if r.get("enabled", True) is not False]
 
     def reviewer(self, rid):
         return next((r for r in self.reviewers() if r["id"] == rid), None)
@@ -149,183 +153,6 @@ class Project(object):
         if not os.path.isdir(sdir):
             return []
         return sorted(set(f[:-4] for f in os.listdir(sdir) if f.endswith(".png")))
-
-
-def _build_captured_time():
-    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
-
-
-def product_build(cwd):
-    """Git HEAD of the product folder at capture time. Never raises."""
-    captured = _build_captured_time()
-    if not cwd:
-        return {"commit": None, "captured": captured}
-    path = os.path.abspath(cwd)
-    head = subprocess.run(["git", "-C", path, "rev-parse", "HEAD"], capture_output=True, text=True)
-    if head.returncode != 0:
-        return {"commit": None, "captured": captured}
-    commit = head.stdout.strip()
-    status = subprocess.run(["git", "-C", path, "status", "--porcelain"], capture_output=True, text=True)
-    dirty = bool(status.stdout.strip()) if status.returncode == 0 else False
-    return {"commit": commit, "dirty": dirty, "captured": captured}
-
-
-def round_build(p, n):
-    path = p.rdir(n, "views.json")
-    if not os.path.exists(path):
-        return None
-    try:
-        with open(path, encoding="utf-8") as fh:
-            doc = json.load(fh)
-    except ValueError:
-        return None
-    if isinstance(doc, dict) and "build" in doc:
-        return doc["build"]
-    return None
-
-
-def tmp_base():
-    # Chrome on macOS will not start from the per-user system temp folder, so use /tmp there.
-    return os.environ.get("MSTACK_TMP") or ("/tmp" if sys.platform == "darwin" else tempfile.gettempdir())
-
-
-def free_port():
-    s = socket.socket()
-    s.bind(("127.0.0.1", 0))
-    port = s.getsockname()[1]
-    s.close()
-    return port
-
-
-def port_free(port):
-    """True when nothing is listening on the port (a closed connection waiting to expire does not count)."""
-    s = socket.socket()
-    s.settimeout(1)
-    try:
-        s.connect(("127.0.0.1", port))
-        return False
-    except OSError:
-        return True
-    finally:
-        s.close()
-
-
-def fill(value, values):
-    """Replace {port}, {tmp}, {dir}, {url} and friends in a string, a list or a dict."""
-    if isinstance(value, str):
-        for k, v in values.items():
-            value = value.replace("{%s}" % k, str(v))
-        return value
-    if isinstance(value, list):
-        return [fill(x, values) for x in value]
-    if isinstance(value, dict):
-        return dict((k, fill(v, values)) for k, v in value.items())
-    return value
-
-
-# ---------------------------------------------------------------- the product under review
-
-class Target(object):
-    """Start the product (if it has a start command) in a fresh temporary folder and wait until it answers."""
-
-    def __init__(self, project, override=None, port=None):
-        self.p = project
-        t = dict(project.cfg.get("target", {}))
-        t.update(override or {})
-        self.t = t
-        self.port = port or free_port()
-        self.tmp = tempfile.mkdtemp(prefix="mstack-target-", dir=tmp_base())
-        cwd = t.get("cwd", ".")
-        self.cwd = cwd if os.path.isabs(cwd) else os.path.normpath(os.path.join(project.dir, cwd))
-        self.values = {"port": self.port, "tmp": self.tmp, "dir": project.dir, "cwd": self.cwd}
-        self.url = fill(t.get("url", "http://127.0.0.1:{port}/"), self.values)
-        self.values["url"] = self.url
-        self.proc = None
-        self.log = os.path.join(self.tmp, "product.log")
-
-    def tail(self):
-        try:
-            with open(self.log, encoding="utf-8", errors="replace") as fh:
-                return "\nIts last output:\n" + "".join(fh.readlines()[-15:])
-        except OSError:
-            return ""
-
-    def _run(self, cmd, wait):
-        env = dict(os.environ, PYTHONUNBUFFERED="1")             # so a Python product's output shows up at once
-        env.update(fill(self.t.get("env", {}), self.values))
-        shell = isinstance(cmd, str)
-        kw = dict(cwd=self.cwd, env=env, shell=shell, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        if os.name == "posix":
-            kw["start_new_session"] = True
-        if wait:
-            kw["stdout"] = kw["stderr"] = subprocess.PIPE
-            r = subprocess.run(fill(cmd, self.values), timeout=600, **kw)
-            if r.returncode != 0:
-                raise SystemExit("A setup command failed: %s\n%s" % (cmd, (r.stderr or b"").decode(errors="replace")))
-            return None
-        kw["stdout"] = open(self.log, "w")
-        kw["stderr"] = subprocess.STDOUT
-        return subprocess.Popen(fill(cmd, self.values), **kw)
-
-    def start(self):
-        if self.t.get("start") and not port_free(self.port):
-            self.stop()
-            raise SystemExit("Port %d is already in use. Stop whatever is using it, or choose another port." % self.port)
-        for cmd in self.t.get("setup", []):
-            self._run(cmd, wait=True)
-        if self.t.get("start"):
-            self.proc = self._run(self.t["start"], wait=False)
-        deadline = time.time() + float(self.t.get("ready_timeout", 30))
-        direct = urllib.request.build_opener(urllib.request.ProxyHandler({}))   # never through a system proxy
-        while time.time() < deadline:
-            if self.proc is not None and self.proc.poll() is not None:
-                msg = "The product stopped while starting (exit %s): %s%s" % (self.proc.returncode, self.t["start"], self.tail())
-                self.stop()
-                raise SystemExit(msg)
-            try:
-                direct.open(self.url, timeout=2)
-                return self
-            except urllib.error.HTTPError:
-                return self                     # it answered, even if not with 200
-            except Exception:
-                time.sleep(0.3)
-        msg = "The product did not answer at %s within %ss.%s" % (self.url, self.t.get("ready_timeout", 30), self.tail())
-        self.stop()
-        raise SystemExit(msg)
-
-    def stop(self):
-        if self.proc is not None and self.proc.poll() is None:
-            try:
-                if os.name == "posix":
-                    os.killpg(self.proc.pid, signal.SIGTERM)
-                else:
-                    self.proc.terminate()
-                self.proc.wait(timeout=5)
-            except Exception:
-                try:
-                    self.proc.kill()
-                except Exception:
-                    pass
-        shutil.rmtree(self.tmp, ignore_errors=True)
-
-    def __enter__(self):
-        return self.start()
-
-    def __exit__(self, *a):
-        self.stop()
-
-
-def drive(spec, out, env=None, timeout=180):
-    with open(os.path.join(out, "steps.json"), "w", encoding="utf-8") as fh:
-        json.dump(spec, fh)
-    node = shutil.which("node")
-    if not node:
-        raise SystemExit("Node.js 18 or later is needed (https://nodejs.org).")
-    r = subprocess.run([node, DRIVER, os.path.join(out, "steps.json"), os.path.join(out, "run")], capture_output=True,
-                       text=True, timeout=timeout, env=env)
-    if r.returncode != 0:
-        raise SystemExit("The journey driver failed: %s %s" % (r.stdout.strip(), r.stderr.strip()))
-    return os.path.join(out, "run")
 
 
 # ---------------------------------------------------------------- commands
@@ -471,14 +298,15 @@ def freeze_control(p, n):
 def cmd_brief(args):
     p = Project(args.dir)
     n = p.need_round(args.round)
-    kinds = set(r.get("kind", "agent") for r in p.reviewers())
-    if p.reviewers() and kinds <= {"chat"}:
+    active = p.enabled_reviewers()
+    kinds = set(r.get("kind", "agent") for r in active)
+    if active and kinds <= {"chat"}:
         raise SystemExit("Every reviewer is a web chat. A chat reviewer only sees screenshots, so it is a tie breaker: "
                          "add at least one reviewer of kind agent or command that drives the real product.")
     os.makedirs(p.rdir(n, "briefs"), exist_ok=True)
     prev = [k for k in p.round_numbers() if k < n and p.shots(k)]
     written = []
-    for i, r in enumerate(p.reviewers()):
+    for i, r in enumerate(active):
         os.makedirs(p.rdir(n, "work", r["id"]), exist_ok=True)
         cdp = args.cdp_port if r.get("shared_chrome") else None
         path = p.rdir(n, "briefs", r["id"] + ".md")
@@ -495,186 +323,11 @@ def cmd_brief(args):
     say(args, {"round": n, "briefs": written, "note": note}, "\n".join(written) + ("\n" + note if note else ""))
 
 
-def cmd_serve(args):
-    p = Project(args.dir)
-    t = Target(p, port=args.port)
-
-    def stop(*_):
-        raise KeyboardInterrupt
-    signal.signal(signal.SIGTERM, stop)          # a plain kill still stops the product too
-    if hasattr(signal, "SIGHUP"):
-        signal.signal(signal.SIGHUP, stop)
-    t.start()
-    print("ready: %s" % t.url, flush=True)
-    try:
-        while t.proc is None or t.proc.poll() is None:
-            time.sleep(1)
-    except KeyboardInterrupt:
-        pass
-    finally:
-        t.stop()
-
-
-def find_chrome():
-    if os.environ.get("MSTACK_CHROME"):
-        return os.environ["MSTACK_CHROME"]
-    places = {"darwin": ["/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-                         "/Applications/Chromium.app/Contents/MacOS/Chromium"],
-              "win32": [r"C:\Program Files\Google\Chrome\Application\chrome.exe"]}.get(sys.platform, [])
-    for x in places:
-        if os.path.exists(x):
-            return x
-    for name in ("google-chrome", "google-chrome-stable", "chromium", "chromium-browser"):
-        if shutil.which(name):
-            return shutil.which(name)
-    return None
-
-
-def shared_chrome(port):
-    """A headless Chrome that sandboxed reviewers reach through MSTACK_CDP_PORT."""
-    bin_ = find_chrome()
-    if not bin_:
-        return None, None
-    work = tempfile.mkdtemp(prefix="mstack-shared-chrome-", dir=tmp_base())
-    proc = subprocess.Popen([bin_, "--headless=new", "--remote-debugging-port=%d" % port, "--user-data-dir=" + work,
-                             "--hide-scrollbars", "--no-first-run"] + os.environ.get("MSTACK_CHROME_ARGS", "").split()
-                            + ["about:blank"],
-                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    for _ in range(50):
-        try:
-            urllib.request.urlopen("http://127.0.0.1:%d/json/version" % port, timeout=1)
-            break
-        except Exception:
-            time.sleep(0.2)
-    return proc, work
-
-
-def extract_json(text):
-    text = text.strip()
-    for cand in [text] + re.findall(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.S):
-        try:
-            return json.loads(cand)
-        except ValueError:
-            pass
-    a, b = text.find("{"), text.rfind("}")
-    if a >= 0 and b > a:
-        try:
-            return json.loads(text[a:b + 1])
-        except ValueError:
-            pass
-    return None
-
-
-def check_verdict(p, v, rid=None, n=None):
-    """Problems with a verdict, as plain sentences (an empty list means it is fine)."""
-    if not isinstance(v, dict):
-        return ["The reply is not a JSON object."]
-    probs = []
-    num = lambda x: isinstance(x, (int, float)) and not isinstance(x, bool) and 0 <= x <= 10   # noqa: E731
-    if rid and v.get("reviewer") not in (rid, None):
-        probs.append("reviewer is %r, expected %r." % (v.get("reviewer"), rid))
-    if n is not None and v.get("round") not in (n, None):
-        probs.append("round is %r, expected %d." % (v.get("round"), n))
-    if not num(v.get("overall")):
-        probs.append("overall must be a number from 0 to 10.")
-    js = v.get("journeys")
-    if not isinstance(js, list) or not js:
-        return probs + ["journeys must be a list with every journey scored."]
-    seen = set()
-    for j in js:
-        if not isinstance(j, dict):
-            probs.append("each journey must be an object.")
-            continue
-        jid = j.get("id")
-        seen.add(jid)
-        fixes = j.get("fixes", []) or []
-        if not num(j.get("score")):
-            probs.append("journey %s: score must be a number from 0 to 10." % jid)
-        if not num(j.get("if_fixed")):
-            probs.append("journey %s: if_fixed must be a number from 0 to 10 (the score if your fixes were made)." % jid)
-        elif num(j.get("score")) and j["if_fixed"] < j["score"]:
-            probs.append("journey %s: if_fixed (%s) cannot be below the score (%s)." % (jid, j["if_fixed"], j["score"]))
-        if j.get("score") == 10 and fixes:
-            probs.append("journey %s: a 10 means nothing is left to improve, but %d fix%s proposed; lower the score or drop the fixes."
-                         % (jid, len(fixes), " is" if len(fixes) == 1 else "es are"))
-        for f in fixes:
-            if not isinstance(f, dict) or f.get("severity") not in SEVERITIES or not f.get("fix"):
-                probs.append("journey %s: each fix needs a severity (high, medium or low) and a fix." % jid)
-                break
-    missing = [j["id"] for j in p.journeys() if j["id"] not in seen]
-    if p.cfg.get("control") and readiness.CONTROL not in seen:
-        missing.append(readiness.CONTROL)
-    if missing:
-        probs.append("journeys not scored: %s." % ", ".join(str(m) for m in missing))
-    for k in ("top_fixes", "broken"):
-        if k in v and not isinstance(v[k], list):
-            probs.append("%s must be a list." % k)
-    return probs
-
-
-def save_verdict(p, n, rid, v):
-    v.setdefault("reviewer", rid)
-    v.setdefault("round", n)
-    v.setdefault("top_fixes", [])
-    v.setdefault("broken", [])
-    r = p.reviewer(rid) or {}
-    v["via"] = r.get("kind", "agent")
-    v["saw"] = "live" if r.get("kind") != "chat" or briefs.public_url(p) else "screenshots"
-    os.makedirs(p.rdir(n, "verdicts"), exist_ok=True)
-    path = p.rdir(n, "verdicts", rid + ".json")
-    with open(path, "w", encoding="utf-8") as fh:
-        json.dump(v, fh, indent=2, ensure_ascii=False)
-    return path
-
-
-def run_reviewer(p, n, r, cdp_port, results):
-    rid = r["id"]
-    work = p.rdir(n, "work", rid)
-    os.makedirs(work, exist_ok=True)
-    reply = os.path.join(work, "reply.txt")
-    if os.path.exists(reply):
-        os.remove(reply)
-    brief = p.rdir(n, "briefs", rid + ".md")
-    with open(brief, encoding="utf-8") as fh:
-        text = fh.read()
-    values = {"work": work, "reply": reply, "brief": brief, "dir": p.dir, "round": n, "skill": SKILL}
-    cmd = fill(r["command"], values)
-    env = dict(os.environ)
-    if cdp_port:
-        env["MSTACK_CDP_PORT"] = str(cdp_port)
-    started = time.time()
-    try:
-        proc = subprocess.run(cmd, input=text if r.get("stdin", "brief") == "brief" else None, capture_output=True,
-                              text=True, env=env, cwd=work, shell=isinstance(cmd, str),
-                              timeout=60 * float(r.get("timeout_minutes", 60)))
-        out = proc.stdout
-    except subprocess.TimeoutExpired:
-        results[rid] = {"ok": False, "problem": "timed out"}
-        return
-    except FileNotFoundError as e:
-        results[rid] = {"ok": False, "problem": "could not run %s: %s" % (cmd[0] if isinstance(cmd, list) else cmd, e)}
-        return
-    raw = out
-    if os.path.exists(reply):
-        with open(reply, encoding="utf-8") as fh:
-            raw = fh.read() or out
-    with open(os.path.join(work, "raw-reply.txt"), "w", encoding="utf-8") as fh:
-        fh.write(raw)
-    v = extract_json(raw)
-    probs = check_verdict(p, v, rid, n)
-    if probs:
-        results[rid] = {"ok": False, "problem": "the reply did not fit the format: " + " ".join(probs),
-                        "raw": os.path.join(work, "raw-reply.txt"), "exit": proc.returncode}
-        return
-    results[rid] = {"ok": True, "verdict": save_verdict(p, n, rid, v), "overall": v["overall"],
-                    "minutes": round((time.time() - started) / 60, 1)}
-
-
 def cmd_review(args):
     p = Project(args.dir)
     n = p.need_round(args.round)
     only = set(filter(None, (args.only or "").split(",")))
-    chosen = [r for r in p.reviewers() if (not only or r["id"] in only)]
+    chosen = [r for r in p.enabled_reviewers() if (not only or r["id"] in only)]
     for r in chosen:
         if not os.path.exists(p.rdir(n, "briefs", r["id"] + ".md")):
             raise SystemExit("No brief for %s yet. Run: brief --round %d" % (r["id"], n))
@@ -729,54 +382,6 @@ def chat_instructions(p, n, r):
                 "" if url else " and upload %s from %s (the person decides whether those screens may go to a third party)" % (
                     shots, p.rdir(n, "shots")),
                 n, r["id"], "sees the public address and the screens" if url else "sees only screenshots"))
-
-
-def read_input(path):
-    if path in (None, "-"):
-        return sys.stdin.read()
-    with open(path, encoding="utf-8") as fh:
-        return fh.read()
-
-
-def save_comparison(p, n, rid, v):
-    os.makedirs(p.rdir(n, "verdicts"), exist_ok=True)
-    path = p.rdir(n, "verdicts", rid + ".compare.json")
-    v.setdefault("reviewer", rid)
-    v.setdefault("round", n)
-    with open(path, "w", encoding="utf-8") as fh:
-        json.dump(v, fh, indent=2, ensure_ascii=False)
-    return path
-
-
-def cmd_verdict(args):
-    p = Project(args.dir)
-    n = p.need_round(args.round)
-    if not p.reviewer(args.reviewer):
-        raise SystemExit("No reviewer %r in %s" % (args.reviewer, CONFIG_NAME))
-    v = extract_json(read_input(args.file))
-    if args.compare:
-        probs = []
-        if not isinstance(v, dict) or not isinstance(v.get("compare"), dict):
-            probs.append("a comparison reply is a JSON object with a \"compare\" object (improved, regressed, unchanged).")
-        elif args.reviewer not in p.verdicts(n):
-            probs.append("save %s's verdict for round %d first: the comparison pass comes after the score of record." % (args.reviewer, n))
-        if probs:
-            say(args, {"ok": False, "problems": probs}, "Not saved:\n- " + "\n- ".join(probs))
-            sys.exit(1)
-        say(args, {"ok": True, "saved": save_comparison(p, n, args.reviewer, v), "next": next_step(p)})
-        return
-    probs = check_verdict(p, v, args.reviewer, n)
-    if probs:
-        say(args, {"ok": False, "problems": probs}, "Not saved:\n- " + "\n- ".join(probs))
-        sys.exit(1)
-    say(args, {"ok": True, "saved": save_verdict(p, n, args.reviewer, v), "next": next_step(p)})
-
-
-def cmd_validate(args):
-    p = Project(args.dir)
-    probs = check_verdict(p, extract_json(read_input(args.file)))
-    say(args, {"ok": not probs, "problems": probs}, "fits the reply format" if not probs else "- " + "\n- ".join(probs))
-    sys.exit(1 if probs else 0)
 
 
 def notify(p, message):

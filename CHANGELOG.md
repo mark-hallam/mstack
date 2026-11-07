@@ -4,6 +4,9 @@ Every release of mStack, newest first. Dates are the day the release was made.
 
 ## Unreleased
 
+- multi-evaluator: command line reviewers can use Cursor's agent with a `{home}` placeholder; every saved
+  verdict records `maker` and `model`, the report header shows them, and reviewers with `"enabled": false`
+  are skipped by brief, review and readiness. `eval_loop.py` and `report.py` are split into smaller modules.
 - multi-evaluator: each reviewer's brief now gets a port nothing on the computer already holds, so two
   reviews running on one computer (or a leftover server) no longer hand out the same port. The self-test
   checks the port it was given, not a fixed one.

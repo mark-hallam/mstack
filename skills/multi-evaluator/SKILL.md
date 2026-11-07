@@ -58,7 +58,7 @@ LOOP start-round --dir design-review          # opens rounds/r<N>/, snapshots th
                                               # write rounds/r<N>/changes.md: what changed, one bullet each
 LOOP capture --dir design-review              # the same screens, captured the same way, every round
 LOOP brief --dir design-review                # blind scoring briefs in rounds/r<N>/briefs/, plus -compare briefs from round 2
-LOOP review --dir design-review               # runs command line reviewers (Codex) in parallel; run it in the background
+LOOP review --dir design-review               # runs command line reviewers (Codex, Cursor, or any agent with a command line) in parallel; run it in the background
 ```
 
 At the same time, run every reviewer whose `kind` is `agent` yourself, in **fresh context**:
