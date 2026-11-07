@@ -8,8 +8,8 @@ description: Improve a product's design in rounds until it is ready for real peo
 Rounds of independent review until the product is **ready for people**: every journey scores 9 or better
 from every reviewer, no high-severity fix is open, the reviewers agree within a point, and that has held
 for two rounds in a row. A unanimous 10 is a flag to double check the brief, not the goal. AI scores are
-a strong signal, not proof: when the loop says ready, real first-time people test it, and where they
-disagree with the AI, the people win.
+a strong signal, not proof. If you can, have a few first-time people try the journeys once the loop says
+ready; what they find becomes the next round's journeys.
 
 Everything runs through one command line tool, `scripts/eval_loop.py` (next to this file), so a person,
 this agent, or any other agent gets the same results. Every command takes `--dir <review folder>`, and
@@ -58,7 +58,7 @@ LOOP start-round --dir design-review          # opens rounds/r<N>/, snapshots th
                                               # write rounds/r<N>/changes.md: what changed, one bullet each
 LOOP capture --dir design-review              # the same screens, captured the same way, every round
 LOOP brief --dir design-review                # blind scoring briefs in rounds/r<N>/briefs/, plus -compare briefs from round 2
-LOOP review --dir design-review               # runs command line reviewers (Codex) in parallel; run it in the background
+LOOP review --dir design-review               # runs command line reviewers (Codex, Cursor, or any agent with a command line) in parallel; run it in the background
 ```
 
 At the same time, run every reviewer whose `kind` is `agent` yourself, in **fresh context**:
@@ -105,9 +105,9 @@ loop needs a decision; the config's `notify` command can also send one (see `ref
    held for two rounds). If a round passes, change nothing big and run one more so it holds. After
    `max_rounds` (default 6) without reaching it, `status` says to stop and talk to the person: the journeys
    or criteria may be asking for something the product should not do.
-4. Then real people: five first-time users try the journeys unaided. Record their time, stumbles and words
-   in `rounds/r<N>/people.md` (one bullet each; the report shows them). Where they disagree with the AI
-   reviewers, the people win: turn what they found into journeys or criteria for the next round.
+4. Optional: if you can, have a few first-time people try the journeys unaided. Record their time, stumbles
+   and words in `rounds/r<N>/people.md` (one bullet each; the report shows them) and turn what they found
+   into journeys or criteria for the next round.
 
 ## Rules
 

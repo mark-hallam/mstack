@@ -1,7 +1,7 @@
 {
   "name": "mstack",
-  "version": "0.4.1",
-  "description": "Mark Hallam's skills for people and their AI agents, agent agnostic, switching on by themselves when relevant: ping-me (on by default: notifies you when your decision is needed or a task is done), away-mode (notices when you follow from your phone and delivers screenshots, PDFs and files into the chat), outcome-first (asks everything once, then runs to a verified outcome), multi-evaluator (independent AI design review until the product is ready for real people), crew (work running in the background within the usage you already pay for, your 15% kept, drafts and side branches only, a morning digest), and mstack (the index, on and off switches, and private self-improvement).",
+  "version": "0.5.0",
+  "description": "Agent skills that take you out of every job you do not need to be in. I use them every day. Any agent, free, MIT.",
   "author": {
     "name": "Mark Hallam",
     "url": "https://github.com/mark-hallam"

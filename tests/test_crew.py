@@ -18,6 +18,8 @@ import tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TOOL = os.path.join(ROOT, "skills", "crew", "scripts", "crew.py")
+LOOP = os.path.join(ROOT, "skills", "multi-evaluator", "scripts", "eval_loop.py")
+LOCKS = os.path.join(ROOT, "skills", "mstack", "scripts")
 failures = []
 
 FAKE_RUNNER = r'''
@@ -28,15 +30,28 @@ pct = float(os.environ.get("FAKE_PCT", "40"))
 print(json.dumps({"type": "rate_limit_event", "rate_limit_info": {"status": "allowed", "unifiedWindows": {
     "five_hour": {"utilization": pct / 100.0, "resetsAt": 4102444800}, "seven_day": {"utilization": 0.3, "resetsAt": 4102444800}}}}))
 mode = os.environ.get("FAKE_MODE", "done")
+home = os.environ.get("MSTACK_HOME", "")
+ctr = os.path.join(home, "crew", ".fake_attempt") if home else ""
+n = 1
+if ctr:
+    try:
+        n = int(open(ctr, encoding="utf-8").read().strip() or "0") + 1
+    except (OSError, ValueError):
+        n = 1
+    os.makedirs(os.path.dirname(ctr), exist_ok=True)
+    open(ctr, "w", encoding="utf-8").write(str(n))
+fail_times = int(os.environ.get("FAKE_FAIL_TIMES", "0"))
 if "Reply with the single word ok" in prompt:
     print(json.dumps({"type": "result", "result": "ok", "usage": {"input_tokens": 1, "output_tokens": 1}, "total_cost_usd": 0.0}))
     sys.exit(0)
-if mode == "done":
+if mode == "done" and n > fail_times:
     with open("crew-made.txt", "w") as fh:
         fh.write("made by the stand-in runner\n")
-    subprocess.run(["git", "add", "-A"], check=True)
-    subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@localhost", "commit", "-qm", "crew: stand-in change"], check=True)
+    subprocess.run(["git", "add", "-A"], check=False)
+    subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@localhost", "commit", "-qm", "crew: stand-in change"], check=False)
     block = {"status": "done", "evidence": ["crew-made.txt written"], "note": "stand-in finished"}
+elif mode == "done" and n <= fail_times:
+    block = {"status": "done", "evidence": ["not yet"], "note": "check should fail"}
 elif mode == "question":
     block = {"status": "question", "question": "Which colour for the button?", "default": "blue", "note": "needs a choice"}
 else:
@@ -115,6 +130,29 @@ def main():
     def js(*args, **extra):
         return json.loads(run(*(list(args) + ["--json"]), **extra))
 
+    def queue_path():
+        return os.path.join(home, "crew", "queue.json")
+
+    def clear_retry(jid, cooldown=True):
+        q = json.load(open(queue_path()))
+        j = next(x for x in q["jobs"] if x["id"] == jid)
+        j["retry_after"] = "2020-01-01T00:00:00"
+        json.dump(q, open(queue_path(), "w"))
+        if cooldown:
+            sp = os.path.join(home, "crew", "state.json")
+            if os.path.exists(sp):
+                st = json.load(open(sp))
+                st["runner_cooldowns"] = {}
+                json.dump(st, open(sp, "w"))
+
+    def clear_retry_after(jid):
+        clear_retry(jid, cooldown=False)
+
+    def reset_fake_ctr():
+        p = os.path.join(home, "crew", ".fake_attempt")
+        if os.path.exists(p):
+            os.remove(p)
+
     try:
         # sources become jobs
         s = js("scan")
@@ -188,6 +226,66 @@ def main():
         b = next(j for j in q["jobs"] if j["title"].endswith("for B"))
         check(n["waiting"].get(b["id"], "").startswith("another job is running"), "a job on the same files waits while the other runs")
         json.dump(dict(st, running=[]), open(os.path.join(home, "crew", "state.json"), "w"))
+        # chrome: inferred needs, the lock, and two projects at once
+        chrome_j = js("add", "proj", "Run full tests", "--tier", "small",
+                      "--done", "all pass::python3 tests/run_all.py", "--outcome", "report only")
+        check(chrome_j["job"].get("needs") == ["chrome"], "a done check that names run_all gets needs chrome")
+        eval_job = next(j for j in json.loads(run("list", "--all"))["jobs"] if j["source"].startswith("evaluator"))
+        q_full = json.load(open(os.path.join(home, "crew", "queue.json")))
+        check((next(j for j in q_full["jobs"] if j["id"] == eval_job["id"]).get("needs") or []) == ["chrome"],
+              "evaluator source jobs always need chrome")
+        lock_dir = os.path.join(home, "locks")
+        os.makedirs(lock_dir, exist_ok=True)
+        with open(os.path.join(lock_dir, "chrome.json"), "w") as fh:
+            json.dump({"owner": "multi-evaluator review", "pid": os.getpid(), "since": "2026-11-07T10:00:00"}, fh)
+        n = js("next", MSTACK_CREW_NO_PROBE="1")
+        why = n["waiting"].get(chrome_j["job"]["id"], "")
+        check(why.startswith("waiting for chrome") and "multi-evaluator review" in why,
+              "next waits for chrome and names the lock holder")
+        with open(os.path.join(lock_dir, "chrome.json"), "w") as fh:
+            json.dump({"owner": "gone", "pid": 999999999, "since": "2026-11-07T09:00:00"}, fh)
+        n = js("next", MSTACK_CREW_NO_PROBE="1")
+        check(not n["waiting"].get(chrome_j["job"]["id"], "").startswith("waiting for chrome"),
+              "a stale chrome lock does not block the job")
+        stale_lock = os.path.join(lock_dir, "chrome.json")
+        if os.path.exists(stale_lock):
+            os.remove(stale_lock)
+        repo2 = os.path.join(work, "proj2")
+        os.makedirs(repo2)
+        subprocess.run(["git", "-C", repo2, "init", "-q", "-b", "main"], check=True)
+        git(repo2, "add", "-A")
+        subprocess.run(["git", "-C", repo2, "-c", "user.name=t", "-c", "user.email=t@localhost", "commit", "-qm", "init", "--allow-empty"], check=True)
+        cfg2 = json.load(open(os.path.join(home, "crew", "config.json")))
+        cfg2["projects"].append({"id": "proj2", "path": repo2, "branch": "main", "stream": "other", "test": "true",
+                                 "sources": []})
+        json.dump(cfg2, open(os.path.join(home, "crew", "config.json"), "w"))
+        qa = js("add", "proj", "Chrome job A", "--tier", "small", "--done", "x::python3 tests/run_all.py")["job"]["id"]
+        qb = js("add", "proj2", "Chrome job B", "--tier", "small", "--done", "x::python3 tests/run_all.py")["job"]["id"]
+        with open(os.path.join(lock_dir, "chrome.json"), "w") as fh:
+            json.dump({"owner": "multi-evaluator review", "pid": os.getpid(), "since": "2026-11-07T10:00:00"}, fh)
+        t = js("tick", "--max", "2", MSTACK_CREW_NO_PROBE="1")
+        ran_chrome = [r["job"] for r in t["ran"] if r["job"] in (qa, qb)]
+        check(len(ran_chrome) == 0, "two chrome jobs on different projects do not run while chrome is held")
+        os.remove(os.path.join(lock_dir, "chrome.json"))
+        if LOCKS not in sys.path:
+            sys.path.insert(0, LOCKS)
+        import locks as mstack_locks
+        os.environ["MSTACK_HOME"] = home
+        mstack_locks.write_lock("chrome", "crew test holder", os.getpid())
+        review = os.path.join(work, "mini-review")
+        os.makedirs(os.path.join(review, "rounds", "r1", "briefs"))
+        with open(os.path.join(review, "mstack-eval.json"), "w") as fh:
+            json.dump({"name": "Mini", "about": "x", "persona": "x", "target": {"url": "http://127.0.0.1:9/", "start": ["true"]},
+                       "views": [], "journeys": [{"id": 1, "name": "J", "task": "t"}],
+                       "reviewers": [{"id": "fast", "kind": "command", "shared_chrome": True, "timeout_minutes": 0.05,
+                                      "command": "true"}]}, fh)
+        with open(os.path.join(review, "rounds", "r1", "briefs", "fast.md"), "w") as fh:
+            fh.write("brief")
+        rv = subprocess.run([sys.executable, LOOP, "review", "--dir", review, "--cdp-port", "19999"],
+                            capture_output=True, text=True, env=dict(env, MSTACK_HOME=home), timeout=30)
+        mstack_locks.release("chrome")
+        check(rv.returncode != 0 and "crew test holder" in (rv.stdout + rv.stderr),
+              "review with a held chrome lock prints who holds it and exits non-zero")
         # the heavy job waits for quiet hours or away
         with open(os.path.join(home, "crew", "config.json"), "w") as fh:
             json.dump(dict(cfg, quiet_hours={"start": "03:00", "end": "03:01"}), fh)
@@ -210,9 +308,61 @@ def main():
             json.dump({"disabled": ["crew"]}, fh)
         check("switched off" in js("tick")["stopped"], "mStack's off switch stops the tick")
         os.remove(os.path.join(home, "config.json"))
+        # a failed done check keeps its output; a passing check writes passed output too
+        fail_j = js("add", "proj", "Check fail saves output", "--done", "boom check::sh -c 'echo boom; exit 1'")["job"]
+        r_fail = js("run", fail_j["id"])
+        check(r_fail["state"] == "todo", "a failing done check schedules another attempt")
+        clear_retry(fail_j["id"])
+        js("run", fail_j["id"])
+        clear_retry(fail_j["id"])
+        r_fail = js("run", fail_j["id"])
+        fail_path = os.path.join(home, "crew", "runs", fail_j["id"], "attempt-3", "checks", "1-FAILED.txt")
+        rel_fail = "runs/%s/attempt-3/checks/1-FAILED.txt" % fail_j["id"]
+        check(r_fail["state"] == "blocked", "a failing done check blocks the job after three tries")
+        check(os.path.isfile(fail_path) and "boom" in open(fail_path, encoding="utf-8").read(),
+              "failed check output is in checks/1-FAILED.txt")
+        jb_fail = next(j for j in json.loads(run("list", "--all"))["jobs"] if j["id"] == fail_j["id"])
+        check(rel_fail in jb_fail["note"] and "boom check" in jb_fail["note"],
+              "the job note names the check and the output file")
+        pass_j = js("add", "proj", "Check pass saves output", "--done", "ok check::sh -c 'echo marker-ok'")["job"]
+        r_pass = js("run", pass_j["id"])
+        pass_path = os.path.join(home, "crew", "runs", pass_j["id"], "attempt-1", "checks", "1-passed.txt")
+        check(r_pass["state"] == "done", "a passing done check lets the job finish")
+        check(os.path.isfile(pass_path) and "marker-ok" in open(pass_path, encoding="utf-8").read(),
+              "passed check output is in checks/1-passed.txt")
+        # small job with one done command: the brief says run exactly, not find files
+        one_cmd = js("add", "proj", "Run the test suite", "--tier", "small", "--done",
+                     "tests pass::python3 tests/run_all.py", "--outcome", "report whether tests pass, change nothing")
+        p_path = one_cmd["job"]["id"]
+        dr = js("run", p_path, "--dry-run")
+        prompt_text = open(dr["prompt"], encoding="utf-8").read()
+        check("Run exactly:" in prompt_text and "python3 tests/run_all.py" in prompt_text,
+              "a small one-command dry run brief names the command verbatim")
+        check("find the few files" not in prompt_text,
+              "a small one-command dry run brief does not tell the runner to find files")
+        named = js("add", "proj", "Edit the plan", "--tier", "small", "--file", "docs/PLAN.md", "--outcome", "fix typo")
+        dr2 = js("run", named["job"]["id"], "--dry-run")
+        prompt2 = open(dr2["prompt"], encoding="utf-8").read()
+        check("docs/PLAN.md" in prompt2 and "Files for this job" in prompt2,
+              "a small job with files named still lists those files in the brief")
+        # digest marks a small job that used more than 200k tokens as heavy for its tier
+        q_path = os.path.join(home, "crew", "queue.json")
+        q_heavy = json.load(open(q_path))
+        scripts = os.path.join(ROOT, "skills", "crew", "scripts")
+        if scripts not in sys.path:
+            sys.path.insert(0, scripts)
+        import crew_digest as dg
+        import crew_store as cst
+        heavy_j = cst.new_job("proj", "Token heavy small job", tier="small", done=["x::true"])
+        heavy_j.update(state="done", finished=cst.stamp(), usage={"total_tokens": 250000}, evidence=["ok"], title=heavy_j["title"])
+        q_heavy["jobs"].append(heavy_j)
+        json.dump(q_heavy, open(q_path, "w"))
+        html_heavy = dg.build_html(dg.gather(cfg, q_heavy))
+        check("heavy for its tier" in html_heavy, "the digest marks a small job over 200k tokens as heavy for its tier")
         # the digest
         d = js("digest", "--no-send")
         html = open(d["html"]).read()
+        check(rel_fail in html, "the digest shows the path to the failed check output")
         check(os.path.exists(d["html"]) and "Finished, with evidence" in html and "Waiting for you" in html and "Usage against the cap" in html,
               "the digest has what finished, what waits and the usage")
         check("stand-in finished" not in html or "commit" in html, "finished jobs show their commits")
@@ -231,6 +381,85 @@ def main():
             check(not os.path.exists(os.path.join(agents, "com.mstack.crew.plist")), "uninstall removes it")
         s = js("status")
         check(isinstance(s["next_step"], str) and s["jobs"]["done"] >= 2, "status says where crew stands and what to do next")
+        # bounded retries before a job is parked
+        reset_fake_ctr()
+        retry_j = js("add", "proj", "Retry until file exists", "--tier", "small",
+                     "--done", "file there::test -f crew-made.txt", "--outcome", "create crew-made.txt")["job"]
+        r1 = js("run", retry_j["id"], FAKE_FAIL_TIMES="2")
+        check(r1["state"] == "todo" and r1.get("note", "") == "", "first failing check sends the job back to todo")
+        q_retry = json.load(open(queue_path()))
+        j1 = next(j for j in q_retry["jobs"] if j["id"] == retry_j["id"])
+        check(len(j1.get("attempts") or []) == 1 and j1["attempts"][0]["result"] == "blocked",
+              "the first attempt is recorded as blocked")
+        clear_retry(retry_j["id"])
+        r2 = js("run", retry_j["id"], FAKE_FAIL_TIMES="2")
+        clear_retry(retry_j["id"])
+        r3 = js("run", retry_j["id"], FAKE_FAIL_TIMES="2")
+        check(r3["state"] == "done", "two failures then a pass ends done")
+        jdone = next(j for j in json.load(open(queue_path()))["jobs"] if j["id"] == retry_j["id"])
+        check(len(jdone.get("attempts") or []) == 3,
+              "three attempts are recorded when the job passes on the third try")
+        rdir = os.path.join(home, "crew", "runs", retry_j["id"])
+        check(all(os.path.isdir(os.path.join(rdir, "attempt-%d" % i)) for i in (1, 2, 3)),
+              "three attempt folders exist under the run folder")
+        reset_fake_ctr()
+        triple = js("add", "proj", "Always fails check", "--tier", "small",
+                    "--done", "never::test -f crew-made.txt", "--outcome", "never")["job"]
+        for _ in range(3):
+            js("run", triple["id"], FAKE_FAIL_TIMES="99")
+            clear_retry(triple["id"])
+        j3 = next(j for j in json.load(open(queue_path()))["jobs"] if j["id"] == triple["id"])
+        check(j3["state"] == "blocked" and j3["note"].startswith("3 attempts:"),
+              "three failed attempts park the job with a 3 attempts note")
+        qpark = js("run", FAKE_MODE="question")
+        jq = next(j for j in json.load(open(queue_path()))["jobs"] if j["id"] == qpark["job"])
+        check(jq["state"] == "question" and not jq.get("retry_after"),
+              "a question is never scheduled for retry")
+        check(len(jq.get("attempts") or []) == 1 and jq["attempts"][0]["result"] == "question",
+              "a question attempt is recorded once")
+        reset_fake_ctr()
+        brief_j = js("add", "proj", "Brief retry context", "--tier", "small",
+                     "--done", "x::test -f crew-made.txt")["job"]
+        js("run", brief_j["id"], FAKE_FAIL_TIMES="1")
+        clear_retry(brief_j["id"])
+        dr_b = js("run", brief_j["id"], "--dry-run", FAKE_FAIL_TIMES="1")
+        brief_text = open(dr_b["prompt"], encoding="utf-8").read()
+        check("Last attempt" in brief_text and "done check failed" in brief_text,
+              "the second attempt brief has a Last attempt section with the previous note")
+        ck = os.path.join(home, "crew", "runs", brief_j["id"], "attempt-1", "checks", "1-FAILED.txt")
+        check(os.path.isfile(ck), "the first attempt kept check output for the next brief")
+        check("Failing check output" in brief_text,
+              "the brief carries check output from the last attempt")
+        reset_fake_ctr()
+        rollout = os.path.join(codex_home, "sessions", "2026", "11", "04", "rollout-a.jsonl")
+        os.makedirs(os.path.dirname(rollout), exist_ok=True)
+        with open(rollout, "w") as fh:
+            fh.write(json.dumps({"timestamp": "2026-11-04T10:00:00.000Z", "type": "event_msg", "payload": {"type": "token_count", "rate_limits": {
+                "primary": {"used_percent": 40.0, "window_minutes": 300, "resets_at": 4102444800},
+                "secondary": {"used_percent": 20.0, "window_minutes": 10080, "resets_at": 4102444800}}}}) + "\n")
+        usage_p = os.path.join(home, "crew", "usage.json")
+        if os.path.exists(usage_p):
+            os.remove(usage_p)
+        js("usage", MSTACK_CREW_NO_PROBE="1")
+        cool_j = js("add", "proj", "Runner swap", "--tier", "small", "--runner", "claude",
+                    "--done", "x::true", "--outcome", "x")["job"]
+        js("run", cool_j["id"], FAKE_MODE="blocked")
+        clear_retry_after(cool_j["id"])
+        dr_sw = js("run", cool_j["id"], "--dry-run", "--force", MSTACK_CREW_NO_PROBE="1")
+        check(dr_sw["runner"] == "codex",
+              "after claude fails, the next attempt prefers codex when the runner is not required")
+        cool_cd = js("add", "proj", "Runner pinned", "--tier", "small", "--runner", "claude",
+                      "--done", "x::true")["job"]
+        q_pin = json.load(open(queue_path()))
+        pin = next(j for j in q_pin["jobs"] if j["id"] == cool_cd["id"])
+        pin["runner_required"] = True
+        json.dump(q_pin, open(queue_path(), "w"))
+        js("run", cool_cd["id"], "--force", FAKE_MODE="blocked")
+        clear_retry_after(cool_cd["id"])
+        st_pin = js("status", MSTACK_CREW_NO_PROBE="1")
+        why_pin = st_pin["waiting"].get(cool_cd["id"], "")
+        check("resting" in why_pin and "claude" in why_pin,
+              "a runner_required job waits for its runner to finish resting")
     finally:
         shutil.rmtree(work, ignore_errors=True)
     print("\n%s" % ("all checks passed" if not failures else "%d checks failed" % len(failures)))

@@ -60,8 +60,30 @@ def head(p, n, rid):
             "", "## What it is", "", p.cfg.get("about", "(No description given.)"), ""]
 
 
-def setup_lines(p, n, rid, index, cdp_port):
+def port_in_use(port):
+    import socket
+    s = socket.socket()
+    try:
+        s.bind(("127.0.0.1", port))
+        return False
+    except OSError:
+        return True
+    finally:
+        s.close()
+
+
+def reviewer_port(index):
+    """A port for this reviewer's own copy of the product: 8900, 8910, 8920 and so on, skipping any port
+    something on this computer already holds (another review's app, a leftover server), so two reviews
+    on one computer never hand out the same port."""
     port = 8900 + 10 * index
+    while port_in_use(port):
+        port += 100
+    return port
+
+
+def setup_lines(p, n, rid, index, cdp_port):
+    port = reviewer_port(index)
     target = p.cfg.get("target", {})
     me = os.path.join(HERE, "eval_loop.py")
     lines = ["## Set up", ""]

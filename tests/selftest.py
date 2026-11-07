@@ -72,8 +72,10 @@ def config(site):
         "stages": [{"name": "Stage 1", "from_round": 3, "criteria": [{"name": "Copy", "means": "plain English."}]}],
         "reviewers": [
             {"id": "stand-in", "name": "Stand-in A", "kind": "command", "colour": "#C15F3C",
+             "maker": "Self-test", "model": "stand-in-v1",
              "command": [sys.executable, STAND_IN, "--id", "stand-in", "--round", "{round}", "--work", "{work}"]},
-            {"id": "second", "name": "Stand-in B", "kind": "agent", "colour": "#1f6feb"},
+            {"id": "second", "name": "Stand-in B", "kind": "agent", "colour": "#1f6feb",
+             "maker": "Self-test", "model": "agent-v1"},
             {"id": "chat", "name": "Stand-in C", "kind": "chat", "url": "https://chat.example", "colour": "#555"}],
     }
 
@@ -138,6 +140,9 @@ def main():
             status = json.loads(run(review, "status", "--json"))
             check("review" in status["next"], "round %d: status says to run the reviewers" % n)
             run(review, "review", "--only", "stand-in")
+            stand_v = json.load(open(os.path.join(review, "rounds", "r%d" % n, "verdicts", "stand-in.json")))
+            check(stand_v.get("maker") == "Self-test" and stand_v.get("model") == "stand-in-v1",
+                  "round %d: the command verdict records maker and model" % n)
             cb = open(os.path.join(review, "rounds", "r%d" % n, "briefs", "chat.md")).read()
             check("You cannot open the product yourself" in cb and "home-phone.png" in cb and "serve --dir" not in cb,
                   "round %d: the web chat reviewer's brief is paste-ready and says it sees only screenshots" % n)
@@ -156,6 +161,9 @@ def main():
                     stdin=json.dumps({"compare": {"improved": ["x"]}}))
                 check(True, "round %d: a comparison cannot be saved before the verdict" % n)
             run(review, "verdict", "--reviewer", "second", "-", stdin=agent_verdict(n))
+            second_v = json.load(open(os.path.join(review, "rounds", "r%d" % n, "verdicts", "second.json")))
+            check(second_v.get("maker") == "Self-test" and second_v.get("model") == "agent-v1",
+                  "round %d: the agent verdict records maker and model" % n)
             check(sorted(os.listdir(os.path.join(review, "rounds", "r%d" % n, "verdicts"))) == ["chat.json", "second.json", "stand-in.json"],
                   "round %d: every verdict saved" % n)
             if n > 1:
@@ -176,6 +184,8 @@ def main():
         page = open(os.path.join(review, "report.html"), encoding="utf-8").read()
         check("<svg" in page and "Target 10" in page, "the report has the score trend")
         check("Stand-in A" in page and "Stand-in B" in page and "Stand-in C" in page, "the report names every reviewer")
+        check("(Self-test, stand-in-v1)" in page and "(Self-test, agent-v1)" in page,
+              "the report header shows maker and model for each reviewer")
         check("Before (round 2)" in page and "After (round 3)" in page, "the report has before and after captions")
         check(len(re.findall(r"src='data:image/jpeg;base64,", page)) >= 6 + 9, "the report embeds before, after and filmstrip images")
         check("Every round" in page, "the report has the filmstrip")
@@ -221,7 +231,9 @@ def main():
               and any("if_fixed" in x for x in probs), "validate refuses a bad verdict and says why")
         run(review, "verdict", "--reviewer", "nobody", "-", expect=1, stdin=agent_verdict(3))
         check(True, "verdict refuses an unknown reviewer")
-        check(eval_loop.port_free(8900), "nothing is left running on the reviewer's port")
+        brief_text = open(os.path.join(review, "rounds", "r3", "briefs", "stand-in.md"), encoding="utf-8").read()
+        used = int(re.search(r"--port (\d+)", brief_text).group(1))
+        check(eval_loop.port_free(used), "nothing is left running on the reviewer's port (%d)" % used)
         if args.write_example:
             dest = os.path.join(ROOT, "examples", "sample-report.html")
             shutil.copyfile(os.path.join(review, "report.html"), dest)

@@ -20,9 +20,38 @@ MAX_ROUNDS = 6
 CONTROL = "control"
 
 
-def counting_reviewers(p):
+def round_reviewers(p, n):
+    """Reviewer ids that round n had scoring briefs for, or today's config when briefs are not written yet."""
+    config_order = [r["id"] for r in p.enabled_reviewers()]
+    config_ids = set(config_order)
+    briefs_dir = p.rdir(n, "briefs")
+    if not os.path.isdir(briefs_dir):
+        return list(config_order)
+    found = []
+    for f in os.listdir(briefs_dir):
+        if f.endswith(".md") and not f.endswith("-compare.md"):
+            rid = f[:-3]
+            if rid in config_ids:
+                found.append(rid)
+    if not found:
+        return list(config_order)
+    return [rid for rid in config_order if rid in found]
+
+
+def brief_reviewers_dropped(p, n):
+    """Brief files for reviewer ids no longer in the config (dropped from round_reviewers)."""
+    config_ids = {r["id"] for r in p.reviewers()}
+    briefs_dir = p.rdir(n, "briefs")
+    if not os.path.isdir(briefs_dir):
+        return []
+    return sorted(f[:-3] for f in os.listdir(briefs_dir) if f.endswith(".md") and not f.endswith("-compare.md")
+                  and f[:-3] not in config_ids)
+
+
+def counting_reviewers(p, n):
     """Reviewers whose scores count toward readiness: everyone except web chat reviewers."""
-    return [r["id"] for r in p.reviewers() if r.get("kind") != "chat"]
+    kinds = dict((r["id"], r.get("kind")) for r in p.reviewers())
+    return [rid for rid in round_reviewers(p, n) if kinds.get(rid) != "chat"]
 
 
 def journey_ids(p):
@@ -40,7 +69,7 @@ def num(x):
 def round_check(p, n):
     """One round against the stopping rule: {"ready": bool, "reasons": [...], "disagreements": {...}, ...}."""
     v = p.verdicts(n)
-    want = counting_reviewers(p)
+    want = counting_reviewers(p, n)
     jids = journey_ids(p)
     reasons, disagreements, high = [], {}, []
     missing = [w for w in want if w not in v]
@@ -120,15 +149,20 @@ def do_next(p, n, limit=8):
 
 def round_state(p, n):
     v = p.verdicts(n)
-    want = [r["id"] for r in p.reviewers()]
+    want = round_reviewers(p, n)
+    prev = round_reviewers(p, n - 1) if n > 1 else []
+    joined = [rid for rid in want if rid not in prev] if n > 1 else []
+    dropped = brief_reviewers_dropped(p, n)
     scores = dict((who, scores_of(d)) for who, d in v.items())
     briefs = p.rdir(n, "briefs")
     check = round_check(p, n)
-    return {
+    out = {
         "round": n,
         "shots": len(p.shots(n)),
         "briefs": sorted(f[:-3] for f in os.listdir(briefs) if f.endswith(".md")) if os.path.isdir(briefs) else [],
         "verdicts": sorted(v),
+        "reviewers": want,
+        "joined": joined,
         "missing_verdicts": [w for w in want if w not in v],
         "overall": dict((who, d.get("overall")) for who, d in v.items()),
         "scores": scores,
@@ -138,6 +172,10 @@ def round_state(p, n):
         "unanimous_ten": check["unanimous_ten"],
         "all_ten": check["unanimous_ten"],
     }
+    if dropped:
+        out["dropped_reviewers"] = dropped
+        out["note"] = "briefs on disk for %s, but those ids are not in the config now" % ", ".join(dropped)
+    return out
 
 
 def next_step(p):
@@ -149,7 +187,7 @@ def next_step(p):
     st = round_state(p, n)
     if st["shots"] == 0 and p.views():
         return "capture --round %d" % n
-    if len(st["briefs"]) < len(p.reviewers()):
+    if len(st["briefs"]) < len(p.enabled_reviewers()):
         return "brief --round %d" % n
     if st["missing_verdicts"]:
         parts = []
@@ -172,8 +210,8 @@ def next_step(p):
     rp = ready_for_people(p)
     if rp["ready"]:
         return ("ready for people: every journey is %d or better from every reviewer, no high-severity fix is open, the "
-                "reviewers agree within %d, and it has held for %d rounds. Now five first-time people try the journeys "
-                "(record them in rounds/r%d/people.md); where they disagree with the AI reviewers, the people win." % (
+                "reviewers agree within %d, and it has held for %d rounds. If you can, have a few first-time people try the journeys "
+                "(record them in rounds/r%d/people.md) and turn what they find into the next round's journeys." % (
                     READY_SCORE, READY_SPREAD, READY_ROUNDS, n))
     flag = " A unanimous 10 this round is a flag to double check the brief and the journeys, not a finish line." if st["unanimous_ten"] else ""
     if st["ready"]:

@@ -2,6 +2,38 @@
 
 Every release of mStack, newest first. Dates are the day the release was made.
 
+## 0.5.0, 7 November 2026
+
+- multi-evaluator: the real-people step after "ready for people" is optional wording now; the stopping rule
+  itself is unchanged.
+- The public face: the README opens with the four jobs you do not need to be in, a one-line promise,
+  proof that the skills switch on by themselves, a 30-second install, and measured numbers with their sources
+  (docs/evidence.md). New docs/comparison.md says how mStack sits beside the popular skill stacks.
+- crew: a job that fails a check, gets no result block, or whose runner exits non zero is retried automatically
+  up to three times (never when the runner asked a question), then parked; each attempt is kept under
+  `runs/<job-id>/attempt-<n>/`.
+- crew: jobs declare shared resources such as `chrome`; crew and multi-evaluator review take a lock under
+  `~/.mstack/locks` so a done check that runs the full test suite does not clash with a review on the same Mac.
+- multi-evaluator: command line reviewers can use Cursor's agent with a `{home}` placeholder; every saved
+  verdict records `maker` and `model`, the report header shows them, and reviewers with `"enabled": false`
+  are skipped by brief, review and readiness. `eval_loop.py` and `report.py` are split into smaller modules.
+- multi-evaluator: each reviewer's brief now gets a port nothing on the computer already holds, so two
+  reviews running on one computer (or a leftover server) no longer hand out the same port. The self-test
+  checks the port it was given, not a fixed one.
+- multi-evaluator: the journey driver's select step finds an option by its value or its visible text, fires
+  the input and change events a real choice fires, and says NOT FOUND with the options when nothing matches,
+  instead of silently clearing the choice.
+- crew: a small job with one done check and no files named now briefs the runner to run that command
+  only, instead of searching the repository. The digest marks such a job as heavy for its tier when it
+  uses more than 200,000 tokens.
+- crew: when a job's done check fails, the check output is saved under the run folder and the blocked note
+  and digest name the file so you do not have to run the check again.
+- multi-evaluator: capture records the product git commit in each round's views.json; status and the report
+  show it, warn when changes.md says nothing changed but the build moved, and note when two clean rounds
+  share the same commit.
+- multi-evaluator: readiness, status and the report judge each round by the reviewers that round had briefs
+  for, not today's config alone, so a reviewer added later is not treated as missing from earlier rounds.
+
 ## 0.4.1, 5 November 2026
 
 - away-mode: screenshots and PDFs now really render in the light theme. Headless Chrome ignored the old

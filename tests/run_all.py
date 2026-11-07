@@ -8,7 +8,7 @@ import subprocess
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-TESTS = ["leak_scan.py", "test_skills.py", "test_mstack.py", "test_outcome.py", "test_away.py", "test_crew.py", "test_crew_branch.py", "selftest.py"]
+TESTS = ["leak_scan.py", "test_skills.py", "test_mstack.py", "test_outcome.py", "test_away.py", "test_crew.py", "test_crew_branch.py", "test_readiness_per_round.py", "test_capture_build.py", "test_drive_select.py", "test_eval_loop_extras.py", "selftest.py"]
 
 failed = []
 for t in TESTS:

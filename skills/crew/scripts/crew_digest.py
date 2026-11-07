@@ -79,8 +79,11 @@ def build_html(d):
     for j in d["finished"]:
         ev = "".join("<p class='ev'>%s</p>" % esc(e) for e in j.get("evidence", [])[:6])
         tok = j.get("usage", {}).get("total_tokens")
+        tok_lbl = ("%s tokens" % format(tok, ",")) if tok else "done"
+        if tok and j.get("tier") == "small" and int(tok) > 200000:
+            tok_lbl += ", heavy for its tier"
         rows.append("<div class='row'><div><span class='k'>%s</span> <span class='sub'>%s, %s</span>%s</div><span class='pill ok'>%s</span></div>" % (
-            esc(j["title"]), esc(j["project"]), esc(j.get("runner_used", "")), ev, ("%s tokens" % format(tok, ",")) if tok else "done"))
+            esc(j["title"]), esc(j["project"]), esc(j.get("runner_used", "")), ev, esc(tok_lbl)))
     finished = "".join(rows) or "<p class='sub'>Nothing finished in the last day.</p>"
     waits = []
     for i, x in enumerate(d["waiting"], 1):

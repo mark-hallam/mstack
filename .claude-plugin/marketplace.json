@@ -5,15 +5,15 @@
     "url": "https://github.com/mark-hallam"
   },
   "metadata": {
-    "description": "Mark Hallam's skills for people and their AI agents.",
-    "version": "0.4.1"
+    "description": "Agent skills that take you out of every job you do not need to be in. I use them every day. Any agent, free, MIT.",
+    "version": "0.5.0"
   },
   "plugins": [
     {
       "name": "mstack",
       "source": "./",
-      "description": "Skills for people and their AI agents, agent agnostic, switching on by themselves: ping-me, away-mode, outcome-first, multi-evaluator, crew and the mstack index with private self-improvement.",
-      "version": "0.4.1",
+      "description": "Agent skills that take you out of every job you do not need to be in. I use them every day. Any agent, free, MIT. ping-me, outcome-first, crew, multi-evaluator, away-mode, and the mstack index with private self-improvement.",
+      "version": "0.5.0",
       "author": {
         "name": "Mark Hallam"
       },
