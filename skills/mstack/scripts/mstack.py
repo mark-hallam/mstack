@@ -211,8 +211,9 @@ def rules(for_hook):
         crew = os.path.join(SKILLS, "crew", "scripts", "crew.py")
         lines.append("Always on, crew: the person's crew is set up. At a natural pause, or when they ask what finished, run "
                      "python3 %s status and tell them what finished, what waits for them (answer with python3 %s answer "
-                     "<id> \"...\"), and the usage against the cap. Never install, push or answer a question for them." % (
-                         shlex.quote(crew), shlex.quote(crew)))
+                     "<id> \"...\"), and the usage against the cap. When they ask what is happening across their projects, run "
+                     "python3 %s status instead. Never install, push or answer a question for them." % (
+                         shlex.quote(crew), shlex.quote(crew), shlex.quote(os.path.join(HERE, "status.py"))))
     here = rules_file.find_project(os.getcwd()) if for_hook else None
     if here and os.path.exists(os.path.join(here, "rules.md")):
         lines.append("This project's rules: %s. Every brief you write for another agent must carry them: python3 %s show "
@@ -641,6 +642,7 @@ def main(argv=None):
     s.add_argument("--title", default="mStack")
     s.add_argument("--also", help="codex-event: the person's previous notify program, as a JSON list, to run as well")
     s.set_defaults(fn=cmd_ping)
+    sub.add_parser("status", help="every project at once, what waits for you first (see status.py)")
     sub.add_parser("rules", help="a rules file per project: init, show, list, import, accept (see rules.py)")
     s = sub.add_parser("setup")
     s.add_argument("target", choices=("claude-hooks", "codex", "cursor", "ntfy"))
@@ -660,6 +662,9 @@ def main(argv=None):
         del argv[i:i + 2]
     if argv[:1] == ["rules"]:                                # a rules file per project: see rules.py
         return rules_file.main(argv[1:])
+    if argv[:1] == ["status"]:                               # status across everything: see status.py
+        import status as status_view
+        return status_view.main(argv[1:])
     args = ap.parse_args(argv)
     if also is not None:
         args.also = also

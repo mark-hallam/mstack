@@ -4,6 +4,7 @@ Every release of mStack, newest first. Dates are the day the release was made.
 
 ## Unreleased
 
+- mstack: `mstack status` shows every project at once (what waits for you first, with the command that answers it, then what is running, the latest review, what shipped last, usage and folders that are gone); `--render` makes a PDF and phone picture, and the crew digest points to it.
 - outcome-first: a question budget. `questions` shows at most `max_questions` (default 6, set in `~/.mstack/config.json`), the rest are taken by default, and replying "defaults" accepts them all.
 - mstack: a rules file per project (`mstack rules init|show|list|import|accept`) kept in the mStack home, never in a repository; crew, multi-evaluator and design-direction briefs and the session start note all read it.
 
