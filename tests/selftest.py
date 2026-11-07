@@ -221,7 +221,9 @@ def main():
               and any("if_fixed" in x for x in probs), "validate refuses a bad verdict and says why")
         run(review, "verdict", "--reviewer", "nobody", "-", expect=1, stdin=agent_verdict(3))
         check(True, "verdict refuses an unknown reviewer")
-        check(eval_loop.port_free(8900), "nothing is left running on the reviewer's port")
+        brief_text = open(os.path.join(review, "rounds", "r3", "briefs", "stand-in.md"), encoding="utf-8").read()
+        used = int(re.search(r"--port (\d+)", brief_text).group(1))
+        check(eval_loop.port_free(used), "nothing is left running on the reviewer's port (%d)" % used)
         if args.write_example:
             dest = os.path.join(ROOT, "examples", "sample-report.html")
             shutil.copyfile(os.path.join(review, "report.html"), dest)

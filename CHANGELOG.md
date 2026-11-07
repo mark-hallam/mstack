@@ -4,6 +4,9 @@ Every release of mStack, newest first. Dates are the day the release was made.
 
 ## Unreleased
 
+- multi-evaluator: each reviewer's brief now gets a port nothing on the computer already holds, so two
+  reviews running on one computer (or a leftover server) no longer hand out the same port. The self-test
+  checks the port it was given, not a fixed one.
 - multi-evaluator: the journey driver's select step finds an option by its value or its visible text, fires
   the input and change events a real choice fires, and says NOT FOUND with the options when nothing matches,
   instead of silently clearing the choice.
