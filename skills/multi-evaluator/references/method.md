@@ -13,8 +13,8 @@
 4. **A report every round**: one self-contained HTML page with the score trend toward 10, each journey
    now against last round and if fixed, what changed, what the reviewers propose, before and after
    screenshots per screen, and a filmstrip of every round.
-5. **Fix, then repeat** until the product is ready for people (the stopping rule below). Then test with
-   real people: where they disagree with the AI reviewers, the real people win. AI scores are a strong
+5. **Fix, then repeat** until the product is ready for people (the stopping rule below). If you can, let a
+   few first-time people try it after that, and feed what they find into the next round. AI scores are a strong
    signal, not proof.
 6. **Tell the person** when a round needs them: the light theme screenshots, the report, and a phone
    notification.
@@ -72,8 +72,8 @@ that round, and the report shows which criteria each round used.
   (screens draw in under a second, actions answer in under half a second).
 - **Stage 3, before real users**: the five-second test, emotional tone, consistency, data safety (nothing
   lost on a refresh or a crash; every change can be undone or is logged), delight.
-- **Stage 4, real people**: five first-time users complete the journeys unaided; their time, stumbles and
-  words are recorded and compared with the AI scores. Where they disagree, the people win.
+- **Stage 4, real people (optional)**: a few first-time users complete the journeys unaided; their time,
+  stumbles and words are recorded beside the AI scores and shape the next round.
 
 ## When to stop: the stopping rule
 
@@ -85,7 +85,7 @@ that round, and the report shows which criteria each round used.
 - the reviewers are within 1 point of each other on every journey;
 - it held last round too, so one lucky round does not end the loop.
 
-Then five real first-time people try the journeys, and they have the last word.
+If you can, a few real first-time people then try the journeys, and what they find shapes the next round.
 
 Why not "every reviewer gives every journey 10"? In practice no journey reaches a unanimous 10: model
 judges have a ceiling around 9, one run of a judge moves a point or two on an unchanged product (see the

@@ -155,7 +155,7 @@ def build(p):
     if done:
         banner = ("<div class='banner'><b>Ready for people.</b> Every journey is %d or better from every reviewer, no "
                   "high-severity fix is open, the reviewers agree within %d, and it has held for %d rounds. Now five "
-                  "first-time people try the journeys. Where they disagree with the AI reviewers, the people win.</div>"
+                  "if you can, have a few first-time people try the journeys and turn what they find into the next round.</div>"
                   % (readiness.READY_SCORE, readiness.READY_SPREAD, readiness.READY_ROUNDS))
     elif latest.get("ready"):
         banner = ("<div class='banner'><b>This round passes the stopping rule.</b> Change nothing big and run one more "
@@ -179,7 +179,7 @@ def build(p):
             "<p class='sub'>%s run every journey in a real browser each round, each in fresh context, and score it out of "
             "10 (9 or better from everyone, agreeing within a point, with no high-severity fix open, two rounds running, "
             "means ready). The same screens are captured the same way every round, so before and after compare like "
-            "for like. AI scores are a strong signal, not proof: real first-time people are the final test.</p>%s%s"
+            "for like. AI scores are a strong signal, not proof.</p>%s%s"
             "%s<h2>Score trend</h2><div class='card'>%s%s</div>"
             "<h2>Each journey, this round against the last</h2><div class='card'>%s</div>"
             "<h2>What changed each round</h2><div class='card'>%s</div>%s"

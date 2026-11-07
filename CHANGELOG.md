@@ -2,8 +2,10 @@
 
 Every release of mStack, newest first. Dates are the day the release was made.
 
-## Unreleased
+## 0.5.0, 7 November 2026
 
+- multi-evaluator: the real-people step after "ready for people" is optional wording now; the stopping rule
+  itself is unchanged.
 - The public face: the README opens with the four jobs you do not need to be in, a one-line promise,
   proof that the skills switch on by themselves, a 30-second install, and measured numbers with their sources
   (docs/evidence.md). New docs/comparison.md says how mStack sits beside the popular skill stacks.

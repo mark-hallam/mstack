@@ -18,6 +18,10 @@ what is public is the method and the result. Where a number is not public, this 
 - Cursor, given only the rules block that `mstack.py routing` prints, routed two of the same phrases
   correctly with Grok 4.7.
 - Not tested that day: Codex (its usage was used up at the time).
+- Rerun the same evening on the 0.5.0 release candidate, installed from the local repository into a fresh
+  profile: five of six picked the same skill. The "I'm heading out, run the tests and let me know" phrase went
+  to crew instead of outcome-first, which is defensible (both run work while the person is away, and ping-me
+  is always on). Recorded as it happened.
 
 ## 7 November 2026: one review round with three AI makers
 

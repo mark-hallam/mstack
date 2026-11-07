@@ -210,8 +210,8 @@ def next_step(p):
     rp = ready_for_people(p)
     if rp["ready"]:
         return ("ready for people: every journey is %d or better from every reviewer, no high-severity fix is open, the "
-                "reviewers agree within %d, and it has held for %d rounds. Now five first-time people try the journeys "
-                "(record them in rounds/r%d/people.md); where they disagree with the AI reviewers, the people win." % (
+                "reviewers agree within %d, and it has held for %d rounds. If you can, have a few first-time people try the journeys "
+                "(record them in rounds/r%d/people.md) and turn what they find into the next round's journeys." % (
                     READY_SCORE, READY_SPREAD, READY_ROUNDS, n))
     flag = " A unanimous 10 this round is a flag to double check the brief and the journeys, not a finish line." if st["unanimous_ten"] else ""
     if st["ready"]:
