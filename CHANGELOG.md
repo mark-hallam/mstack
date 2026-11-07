@@ -4,6 +4,9 @@ Every release of mStack, newest first. Dates are the day the release was made.
 
 ## Unreleased
 
+- The public face: the README opens with the four jobs you do not need to be in, a one-line promise,
+  proof that the skills switch on by themselves, a 30-second install, and measured numbers with their sources
+  (docs/evidence.md). New docs/comparison.md says how mStack sits beside the popular skill stacks.
 - crew: a job that fails a check, gets no result block, or whose runner exits non zero is retried automatically
   up to three times (never when the runner asked a question), then parked; each attempt is kept under
   `runs/<job-id>/attempt-<n>/`.
