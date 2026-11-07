@@ -2,6 +2,12 @@
 
 Every release of mStack, newest first. Dates are the day the release was made.
 
+## Unreleased
+
+- multi-evaluator: the compare pass re-grades last round's numbered fixes (done, partly, not, regressed, not
+  testable, with the exact words seen), there is a new "blocker" severity that caps a journey at 5 and stops a
+  round being ready, journeys can name a persona, and replies can list what could not be tested.
+
 ## 0.5.0, 7 November 2026
 
 - multi-evaluator: the real-people step after "ready for people" is optional wording now; the stopping rule

@@ -89,7 +89,11 @@ LOOP verdict --dir design-review --reviewer claude --compare compare-reply.json
 LOOP report --dir design-review                                     # writes design-review/report.html
 ```
 
-The comparison never changes a score; the report shows it under "What changed".
+The comparison never changes a score; the report shows it under "What changed". It also **re-grades last
+round's fixes**: the compare brief numbers them (f1, f2...), and the reply must answer every id with `done`,
+`partly`, `not`, `regressed` or `not_testable` and the exact words or state on screen that prove it. `verdict
+--compare` refuses a reply that leaves one out, and the report shows a re-grade table per round.
+A scoring reply may also list `could_not_test` and `did_not_touch`, so what was never checked is on record.
 
 Then show the person the report and the light theme screenshots (`rounds/r<N>/shots/`). Send them a
 notification if your agent can (in Claude Code, PushNotification) when a round's report is ready or the
@@ -97,8 +101,8 @@ loop needs a decision; the config's `notify` command can also send one (see `ref
 
 ## 3. Fix, then repeat
 
-1. Start from the report's **Do these next** list (fixes on a journey every reviewer flagged first, then
-   high severity, then the biggest "if fixed" gap). Where the journey table says the reviewers disagree by
+1. Start from the report's **Do these next** list (blockers first, then fixes on a journey every reviewer
+   flagged, then high severity, then the biggest "if fixed" gap). Where the journey table says the reviewers disagree by
    2 or more, look at that journey yourself before acting on either score.
 2. Make the fixes in the product, run its own tests, and write the next round's `changes.md`.
 3. `LOOP start-round`, and repeat until `LOOP status` says **ready for people** (the stopping rule above,
@@ -114,6 +118,10 @@ loop needs a decision; the config's `notify` command can also send one (see `ref
 - Reviewers never see each other's verdicts, earlier rounds, earlier scores or the report while scoring;
   the brief tells them so. Comparison with last round is a separate pass, after the verdict.
 - The same views, captured the same way, every round, so before and after compare like for like.
+- A **blocker** is a problem that stops the person on the main path or breaks a safety or trust rule. A
+  journey with one cannot score above 5, and a round with an open blocker is never ready.
+- A journey may name a `persona` (defined under `personas` in the config), so each task is played by the
+  right person: a child, a sibling, a grown-up.
 - Never let a reviewer submit real payments, messages or personal data. Use demo data and a fresh copy.
 - Sandboxed reviewers (Codex) cannot start Chrome: `review` starts a shared headless Chrome and the brief
   tells them to put `MSTACK_CDP_PORT=<port>` in front of the driver command.

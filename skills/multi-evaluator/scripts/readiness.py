@@ -71,7 +71,7 @@ def round_check(p, n):
     v = p.verdicts(n)
     want = counting_reviewers(p, n)
     jids = journey_ids(p)
-    reasons, disagreements, high = [], {}, []
+    reasons, disagreements, high, blockers = [], {}, [], []
     missing = [w for w in want if w not in v]
     if missing:
         reasons.append("no verdict yet from %s" % ", ".join(missing))
@@ -89,10 +89,14 @@ def round_check(p, n):
             for f in j.get("fixes", []) or []:
                 if isinstance(f, dict) and f.get("severity") == "high":
                     high.append({"reviewer": w, "journey": j.get("id"), "fix": f.get("fix", "")})
+                if isinstance(f, dict) and f.get("severity") == "blocker":
+                    blockers.append({"reviewer": w, "journey": j.get("id"), "fix": f.get("fix", "")})
+    if blockers:
+        reasons.append("%d blocker%s open" % (len(blockers), "" if len(blockers) == 1 else "s"))
     if high:
         reasons.append("%d high-severity fix%s still open" % (len(high), "" if len(high) == 1 else "es"))
     unanimous = bool(want) and not missing and all(scores_of(v[w]).get(j) == 10 for w in want for j in jids)
-    return {"round": n, "ready": not reasons, "reasons": reasons, "disagreements": disagreements, "high_open": high,
+    return {"round": n, "ready": not reasons, "reasons": reasons, "disagreements": disagreements, "high_open": high, "blockers_open": blockers,
             "unanimous_ten": unanimous}
 
 
@@ -124,8 +128,8 @@ def control_noise(p):
 
 
 def do_next(p, n, limit=8):
-    """The fixes to make next: those on journeys every reviewer flagged first, then high severity, then the
-    biggest "if fixed" gap, then the lowest score."""
+    """The fixes to make next: blockers first, then those on journeys every reviewer flagged, then high
+    severity, then the biggest "if fixed" gap, then the lowest score."""
     v = p.verdicts(n)
     who_flagged = {}
     items = []
@@ -139,10 +143,10 @@ def do_next(p, n, limit=8):
             for f in fixes:
                 items.append({"reviewer": who, "journey": jid, "severity": f.get("severity", "low"), "where": f.get("where", ""),
                               "problem": f.get("problem", ""), "fix": f.get("fix", ""), "gap": gap, "score": j.get("score")})
-    rank = {"high": 0, "medium": 1, "low": 2}
+    rank = {"blocker": -1, "high": 0, "medium": 1, "low": 2}
     for it in items:
         it["agreed"] = len(who_flagged.get(it["journey"], ())) >= max(2, min(2, len(v)))
-    items.sort(key=lambda it: (0 if it["agreed"] else 1, rank.get(it["severity"], 3), -it["gap"],
+    items.sort(key=lambda it: (0 if it["severity"] == "blocker" else 1, 0 if it["agreed"] else 1, rank.get(it["severity"], 3), -it["gap"],
                                it["score"] if num(it["score"]) else 10))
     return items[:limit]
 

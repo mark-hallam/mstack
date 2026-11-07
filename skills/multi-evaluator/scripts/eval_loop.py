@@ -307,6 +307,7 @@ def cmd_brief(args):
     if active and kinds <= {"chat"}:
         raise SystemExit("Every reviewer is a web chat. A chat reviewer only sees screenshots, so it is a tie breaker: "
                          "add at least one reviewer of kind agent or command that drives the real product.")
+    briefs.check_personas(p)
     os.makedirs(p.rdir(n, "briefs"), exist_ok=True)
     prev = [k for k in p.round_numbers() if k < n and p.shots(k)]
     written = []

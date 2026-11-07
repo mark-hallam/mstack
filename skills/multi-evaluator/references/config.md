@@ -11,6 +11,7 @@ The review folder holds one `mstack-eval.json`. `eval_loop.py init` writes a sta
 | `about` | One short paragraph for reviewers who have never seen it: what it is, who it is for, what it promises. Not the design direction: that goes in `rules`, so the scoring pass stays blind. |
 | `rules` | Optional list of constraints a fix must respect (the design direction, a locked brand, "no new pages"). Shown to reviewers as "not scored". |
 | `persona` | Who the reviewers judge as, finishing the sentence "Judge it as this person: ...". |
+| `personas` | Optional list of named people, each `{"id": "child", "who": "a seven year old who reads short words"}`. A journey may name one with `"persona": "child"`; the scoring brief then says "Play this person: ..." on that journey's line. `brief` refuses a journey that names an id not listed here. |
 | `note` | Optional line under the report's title (for example "Fictional demo data."). |
 
 ## `target`: how to reach the product
@@ -53,6 +54,10 @@ Each view in `views` is captured every round, the same way:
 ```
 
 Write each as a real person's task, end to end, with what done looks like. Never write the expected answer.
+
+A journey may add `"persona": "child"` (an id from `personas`) to be played by that person instead of the
+default `persona`. For example, with `"personas": [{"id": "child", "who": "a seven year old who reads short words"}]`
+in the config, `{"id": 2, "name": "Join a game", "persona": "child", "task": "..."}` is scored as that child.
 
 ## `criteria` and `stages`
 

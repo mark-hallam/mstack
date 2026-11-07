@@ -167,8 +167,11 @@ def main():
             check(sorted(os.listdir(os.path.join(review, "rounds", "r%d" % n, "verdicts"))) == ["chat.json", "second.json", "stand-in.json"],
                   "round %d: every verdict saved" % n)
             if n > 1:
+                ids = re.findall(r"^(f\d+)\. ", open(os.path.join(review, "rounds", "r%d" % n, "briefs", "second-compare.md")).read(), re.M)
+                check(len(ids) > 0, "round %d: the comparison brief lists last round's fixes to re-grade" % n)
                 run(review, "verdict", "--reviewer", "second", "--compare", "-",
-                    stdin=json.dumps({"compare": {"improved": ["Plain words on the buttons."], "regressed": [], "unchanged": []}}))
+                    stdin=json.dumps({"compare": {"improved": ["Plain words on the buttons."], "regressed": [], "unchanged": []},
+                                      "regrade": [{"id": i, "state": "done", "seen": "self-test"} for i in ids]}))
                 vfiles = sorted(os.listdir(os.path.join(review, "rounds", "r%d" % n, "verdicts")))
                 check(vfiles == ["chat.json", "second.compare.json", "second.json", "stand-in.json"], "round %d: the comparison is saved apart" % n)
                 check(json.loads(run(review, "status", "--json"))["rounds"][-1]["verdicts"] == ["chat", "second", "stand-in"],

@@ -17,6 +17,8 @@ import os
 import re
 import shlex
 
+import regrade
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 DRIVER = os.path.join(HERE, "drive.mjs")
 CONTROL = "control"
@@ -25,16 +27,23 @@ REPLY_FORMAT = """{"reviewer": "%(rid)s", "round": %(n)d,
  "journeys": [{"id": <journey id>, "name": "...", "score": <0 to 10>,
    "if_fixed": <0 to 10: the score if your fixes for this journey were made; never below score>,
    "what_worked": ["..."],
-   "fixes": [{"severity": "high|medium|low", "where": "screen or element", "problem": "...", "fix": "..."}]}],
+   "fixes": [{"severity": "blocker|high|medium|low", "where": "screen or element", "problem": "...", "fix": "..."}]}],
  "overall": <0 to 10>,
  "top_fixes": ["the five changes that would raise the scores most"],
- "broken": ["anything that errored, did nothing, or showed wrong data"]}"""
+ "broken": ["anything that errored, did nothing, or showed wrong data"],
+ "could_not_test": ["optional: what you could not reach or try, and why"],
+ "did_not_touch": ["optional: anything you deliberately avoided, for example payments"]}
+
+A **blocker** is a problem that stops the person finishing the journey, or breaks a safety or trust rule. A journey
+with a blocker cannot score above 5. High, medium and low are for problems that do not stop the journey."""
 
 COMPARE_FORMAT = """{"reviewer": "%(rid)s", "round": %(n)d,
  "compare": {"improved": ["what is better than last round, one line each"],
              "regressed": ["what got worse or broke"],
              "unchanged": ["what is still in the way"],
-             "note": "one sentence"}}"""
+             "note": "one sentence"},
+ "regrade": [{"id": "f1", "state": "done|partly|not|regressed|not_testable",
+              "seen": "the exact words or state on screen that prove it"}]}"""
 
 
 def fill(value, values):
@@ -42,6 +51,20 @@ def fill(value, values):
         for k, v in values.items():
             value = value.replace("{%s}" % k, str(v))
     return value
+
+
+def check_personas(p):
+    """Refuse a journey that names a persona the config does not define."""
+    known = set(x.get("id") for x in p.cfg.get("personas") or [] if isinstance(x, dict))
+    bad = ["journey %s names persona %r" % (j["id"], j["persona"]) for j in p.journeys() if j.get("persona") and j["persona"] not in known]
+    if bad:
+        raise SystemExit("Unknown persona: %s. Define it under \"personas\" in mstack-eval.json (known: %s)." % (
+            "; ".join(bad), ", ".join(sorted(known)) or "none"))
+
+
+def journey_persona(p, j):
+    who = next((x.get("who") for x in p.cfg.get("personas") or [] if isinstance(x, dict) and x.get("id") == j.get("persona")), None)
+    return " Play this person: %s" % who if who else ""
 
 
 def public_url(p):
@@ -129,7 +152,7 @@ def journey_lines(p, n):
     lines = ["## The journeys for this round (score each 0 to 10)", ""]
     for j in p.journeys():
         vp = j.get("viewport")
-        lines.append("%s. **%s%s.** %s" % (j["id"], j["name"], " (%s)" % vp if vp else "", j.get("task", "")))
+        lines.append("%s. **%s%s.** %s%s" % (j["id"], j["name"], " (%s)" % vp if vp else "", j.get("task", ""), journey_persona(p, j)))
     control = p.cfg.get("control")
     if control and os.path.isdir(os.path.join(p.dir, CONTROL)):
         lines += ["", "Also score one **control**, id `%s`, exactly like a journey: the screens in %s (fixed screenshots "
@@ -171,7 +194,7 @@ def compare_brief(p, n, rid, prev):
              "for round %d is already saved and does not change." % n, "",
              "Last round's fixed screenshots of the same screens are in %s; this round's are in %s. The maker says this "
              "changed going into round %d:" % (p.rdir(prev, "shots"), p.rdir(n, "shots"), n), "",
-             changes or "(nothing written)", "",
+             changes or "(nothing written)", ""] + regrade.brief_lines(regrade.write_list(p, n, rid, prev)) + [
              "Compare screen by screen. Say what improved, what got worse or broke, and what is still in the way. Be "
              "concrete: name the screen and the element.", "",
              "## Reply format", "", "Return JSON only:", "", COMPARE_FORMAT % {"rid": rid, "n": n}, ""]

@@ -5,6 +5,7 @@ import os
 import re
 
 import readiness
+import regrade
 
 
 def esc(s):
@@ -102,7 +103,7 @@ def do_next(p, cur, order, info):
                         esc(it["where"] or "the product"), esc(it["journey"]), who["colour"], esc(who["name"]),
                         esc(it["fix"]), ("Problem: " + esc(it["problem"])) if it["problem"] else ""))
     return ("<h2>Do these next</h2><div class='card'><p class='small sub'>Ranked: fixes on a journey every reviewer "
-            "flagged first, then high severity, then the biggest \"if fixed\" gap.</p><ol class='fixes'>%s</ol></div>"
+            "flagged first (blockers before all), then high severity, then the biggest \"if fixed\" gap.</p><ol class='fixes'>%s</ol></div>"
             % "".join(rows))
 
 
@@ -156,7 +157,7 @@ def journey_table(p, rs, order, info):
 
 def fixes_detail(cur, order, info):
     out = []
-    rank = {"high": 0, "medium": 1, "low": 2}
+    rank = {"blocker": -1, "high": 0, "medium": 1, "low": 2}
     for who in order:
         v = cur["verdicts"].get(who)
         if not v:
@@ -167,10 +168,14 @@ def fixes_detail(cur, order, info):
                 items.append("<li><span class='sev %s'>%s</span> <b>%s</b> (journey %s): %s <span class='sub'>Fix: %s</span></li>"
                              % (esc(f.get("severity")), esc(f.get("severity")), esc(f.get("where", "")), esc(j.get("id")),
                                 esc(f.get("problem", "")), esc(f.get("fix", ""))))
-        if items:
+        notes = ""
+        for key, label in (("could_not_test", "Could not test"), ("did_not_touch", "Deliberately did not touch")):
+            if v.get(key):
+                notes += "<p class='small sub'>%s</p><ul>%s</ul>" % (label, "".join("<li>%s</li>" % esc(t) for t in v[key]))
+        if items or notes:
             out.append("<details class='card'><summary><i class='dot' style='background:%s'></i>Every fix %s proposed "
-                       "(%d)</summary><ul class='fixes'>%s</ul></details>" % (
-                           info[who]["colour"], esc(info[who]["name"]), len(items), "".join(items)))
+                       "(%d)</summary><ul class='fixes'>%s</ul>%s</details>" % (
+                           info[who]["colour"], esc(info[who]["name"]), len(items), "".join(items), notes))
     return "".join(out)
 
 
@@ -243,7 +248,7 @@ def build_warning(r, prev):
             "from %s to %s.</p>" % (esc(short_commit(prev_commit)), esc(short_commit(commit))))
 
 
-def what_changed_rounds(rs):
+def what_changed_rounds(rs, info=None):
     bits = []
     for i, r in enumerate(rs):
         prev = rs[i - 1] if i else None
@@ -252,7 +257,7 @@ def what_changed_rounds(rs):
         if sc:
             heading += " (%s)" % sc
         bits.append("<h3 class='grp'>%s</h3>%s%s%s" % (
-            esc(heading), build_note(r, prev), build_warning(r, prev), md_list(r["changes"])))
+            esc(heading), build_note(r, prev), build_warning(r, prev), md_list(r["changes"]) + regrade.table_html(r.get("regrade"), info or {})))
     return "".join(bits) if bits else "<p class='sub'>Not written.</p>"
 
 
@@ -347,7 +352,7 @@ thead th{border-top:none;font-size:12px;color:var(--sub)}.up{color:var(--up);fon
 .chip{display:inline-block;font-size:12px;padding:2px 9px;border-radius:999px;background:var(--page);margin:2px 4px 2px 0}
 .chip.new{background:var(--accent);color:#fff}
 .sev{display:inline-block;font-size:11px;font-weight:600;padding:1px 7px;border-radius:999px;background:var(--page)}
-.sev.high{background:var(--down);color:#fff}.fixes li{margin:8px 0}summary{cursor:pointer;font-weight:600}
+.sev.high,.sev.blocker{background:var(--down);color:#fff}.sev.blocker{text-transform:uppercase}.fixes li{margin:8px 0}summary{cursor:pointer;font-weight:600}
 .pairs{display:flex;flex-wrap:wrap;gap:14px}.pair{background:var(--card);border-radius:16px;box-shadow:var(--shadow);padding:16px;flex:1 1 100%}
 .pair.narrow{flex:0 1 auto}.ba{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .narrow .ba{grid-template-columns:repeat(2,minmax(0,300px))}
