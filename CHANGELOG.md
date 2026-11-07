@@ -2,6 +2,10 @@
 
 Every release of mStack, newest first. Dates are the day the release was made.
 
+## Unreleased
+
+- mstack: a rules file per project (`mstack rules init|show|list|import|accept`) kept in the mStack home, never in a repository; crew, multi-evaluator and design-direction briefs and the session start note all read it.
+
 ## 0.6.0, 7 November 2026
 
 - multi-evaluator: every capture now measures each view (length, repeated phrases, contrast, alt text, sideways scroll,

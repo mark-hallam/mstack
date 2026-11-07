@@ -17,8 +17,14 @@ import json
 import os
 import re
 import shlex
+import sys
 
 import regrade
+
+_MSTACK = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "mstack", "scripts")
+if _MSTACK not in sys.path:
+    sys.path.insert(0, _MSTACK)
+import rules as rules_file  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DRIVER = os.path.join(HERE, "drive.mjs")
@@ -161,6 +167,13 @@ def brand_rules(p):
         return []
 
 
+def project_rule_lines(p):
+    """The merged rules of the project this eval folder belongs to (config "project", else the parent folder)."""
+    folder = p.cfg.get("project") or os.path.dirname(p.dir)
+    merged = rules_file.merged(folder)
+    return [r for items in merged["rules"].values() for r in items]
+
+
 def journey_lines(p, n):
     lines = ["## The journeys for this round (score each 0 to 10)", ""]
     for j in p.journeys():
@@ -174,7 +187,7 @@ def journey_lines(p, n):
     lines += ["", "## Score each journey on", "", "A journey only scores 10 when it meets every one of these.", ""]
     for c in p.criteria(n):
         lines.append("- **%s**: %s" % (c["name"], c.get("means", "")))
-    rules = list(p.cfg.get("rules") or []) + brand_rules(p)
+    rules = list(p.cfg.get("rules") or []) + brand_rules(p) + project_rule_lines(p)
     if rules:
         lines += ["", "## Rules your fixes must respect (not scored)", "",
                   "Do not score against these; they bound what a fix may change."]

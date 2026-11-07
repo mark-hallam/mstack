@@ -38,6 +38,8 @@ import urllib.request
 HERE = os.path.dirname(os.path.abspath(__file__))
 SKILLS = os.path.dirname(os.path.dirname(HERE))          # the folder holding every mStack skill
 SELF = os.path.abspath(__file__)
+sys.path.insert(0, HERE)
+import rules as rules_file  # noqa: E402  (the rules file per project)
 OUTCOMES = ("reached", "partial", "not-reached")
 DEFAULTS = {"disabled": [], "review_every": 10,
             "ping": {"desktop": True, "ntfy_topic": "", "ntfy_server": "https://ntfy.sh"}}
@@ -211,6 +213,11 @@ def rules(for_hook):
                      "python3 %s status and tell them what finished, what waits for them (answer with python3 %s answer "
                      "<id> \"...\"), and the usage against the cap. Never install, push or answer a question for them." % (
                          shlex.quote(crew), shlex.quote(crew)))
+    here = rules_file.find_project(os.getcwd()) if for_hook else None
+    if here and os.path.exists(os.path.join(here, "rules.md")):
+        lines.append("This project's rules: %s. Every brief you write for another agent must carry them: python3 %s show "
+                     "--project %s --brief." % (os.path.join(here, "rules.md"), shlex.quote(os.path.join(HERE, "rules.py")),
+                                                shlex.quote(os.getcwd())))
     lines.append("After an mStack skill is used, record privately how it went: %s log <skill> --outcome "
                  "reached|partial|not-reached [--needed-user ...] [--stalled ...] [--correction ...]. If "
                  "%s exists, it holds the person's accepted improvements to that skill: follow it." % (
@@ -634,6 +641,7 @@ def main(argv=None):
     s.add_argument("--title", default="mStack")
     s.add_argument("--also", help="codex-event: the person's previous notify program, as a JSON list, to run as well")
     s.set_defaults(fn=cmd_ping)
+    sub.add_parser("rules", help="a rules file per project: init, show, list, import, accept (see rules.py)")
     s = sub.add_parser("setup")
     s.add_argument("target", choices=("claude-hooks", "codex", "cursor", "ntfy"))
     s.add_argument("--write", action="store_true", help="make the change (only after the person says yes)")
@@ -650,6 +658,8 @@ def main(argv=None):
         i = argv.index("--also")
         also = argv[i + 1] if i + 1 < len(argv) else ""
         del argv[i:i + 2]
+    if argv[:1] == ["rules"]:                                # a rules file per project: see rules.py
+        return rules_file.main(argv[1:])
     args = ap.parse_args(argv)
     if also is not None:
         args.also = also

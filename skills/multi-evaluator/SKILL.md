@@ -133,6 +133,7 @@ loop needs a decision; the config's `notify` command can also send one (see `ref
 - If a reviewer's reply does not fit, read `rounds/r<N>/work/<reviewer>/raw-reply.txt`, then rerun it. The
   tool refuses a 10 that still proposes fixes, and an "if fixed" below the score.
 - Keep the review folder in the product's repository (or next to it) so every round is kept.
+- Scoring briefs list the project's rules file (`MSTACK rules show`) under "Rules your fixes must respect" when one exists.
 
 ## Files
 

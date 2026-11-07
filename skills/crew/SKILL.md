@@ -95,6 +95,7 @@ the answer in its brief. A blocked job: `CREW retry <job-id>` (once more) or `CR
 - Before any push it would ever be allowed to do (`allow_push` in a project, off by default), the repository's
   leak scan runs first, and only a `crew/` side branch of a project already on GitHub can be pushed.
 - The person's queue, projects and digests stay in `~/.mstack/crew`, outside every repository.
+- A job's brief carries the project's rules file (`MSTACK rules show --project <folder>`) when one exists.
 
 ## For other agents
 

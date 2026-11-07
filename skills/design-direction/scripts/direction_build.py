@@ -2,8 +2,13 @@
 import os
 import re
 import subprocess
+import sys
 import threading
 
+_MSTACK = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "mstack", "scripts")
+if _MSTACK not in sys.path:
+    sys.path.insert(0, _MSTACK)
+import rules as rules_file  # noqa: E402
 from direction_common import Project, fail, label, read, say, write
 
 NARROW = ("The look is decided: %(label)s in round %(round)d (%(file)s). Every variant must use exactly its colours, "
@@ -104,12 +109,13 @@ def start_round(args, mode, count):
     write(p.rdir(k, "brief.md"), text)
     for sub in ("options", "shots", "work"):
         os.makedirs(p.rdir(k, sub), exist_ok=True)
+    project_rules = rules_file.block(p.cfg.get("project") or os.path.dirname(p.dir))
     builders, jobs, waiting = p.builders(), [], []
     for i, item in enumerate(ids):
         if os.path.exists(p.item_file(k, item)) and not args.force:
             continue
         b = builders[i % len(builders)]
-        full = text + "\n\n" + ASK % {"kind": kind, "out": p.item_file(k, item)}
+        full = text + ("\n\n" + project_rules if project_rules else "") + "\n\n" + ASK % {"kind": kind, "out": p.item_file(k, item)}
         if b.get("kind") == "command":
             jobs.append((item, b, full))
         else:
