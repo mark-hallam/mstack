@@ -6,14 +6,14 @@
   },
   "metadata": {
     "description": "Agent skills that take you out of every job you do not need to be in. I use them every day. Any agent, free, MIT.",
-    "version": "0.5.0"
+    "version": "0.6.0"
   },
   "plugins": [
     {
       "name": "mstack",
       "source": "./",
       "description": "Agent skills that take you out of every job you do not need to be in. I use them every day. Any agent, free, MIT. ping-me, outcome-first, crew, multi-evaluator, away-mode, and the mstack index with private self-improvement.",
-      "version": "0.5.0",
+      "version": "0.6.0",
       "author": {
         "name": "Mark Hallam"
       },

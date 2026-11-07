@@ -2,7 +2,7 @@
 
 Every release of mStack, newest first. Dates are the day the release was made.
 
-## Unreleased
+## 0.6.0, 7 November 2026
 
 - multi-evaluator: every capture now measures each view (length, repeated phrases, contrast, alt text, sideways scroll,
   reduce motion, page weight, heading skips) and the report shows the numbers round by round under "Measured".
