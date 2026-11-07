@@ -2,6 +2,11 @@
 
 Every release of mStack, newest first. Dates are the day the release was made.
 
+## Unreleased
+
+- crew: when a job's done check fails, the check output is saved under the run folder and the blocked note
+  and digest name the file so you do not have to run the check again.
+
 ## 0.4.1, 5 November 2026
 
 - away-mode: screenshots and PDFs now really render in the light theme. Headless Chrome ignored the old

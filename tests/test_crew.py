@@ -210,9 +210,27 @@ def main():
             json.dump({"disabled": ["crew"]}, fh)
         check("switched off" in js("tick")["stopped"], "mStack's off switch stops the tick")
         os.remove(os.path.join(home, "config.json"))
+        # a failed done check keeps its output; a passing check writes passed output too
+        fail_j = js("add", "proj", "Check fail saves output", "--done", "boom check::sh -c 'echo boom; exit 1'")["job"]
+        r_fail = js("run", fail_j["id"])
+        fail_path = os.path.join(home, "crew", "runs", fail_j["id"], "checks", "1-FAILED.txt")
+        rel_fail = "runs/%s/checks/1-FAILED.txt" % fail_j["id"]
+        check(r_fail["state"] == "blocked", "a failing done check blocks the job")
+        check(os.path.isfile(fail_path) and "boom" in open(fail_path, encoding="utf-8").read(),
+              "failed check output is in checks/1-FAILED.txt")
+        jb_fail = next(j for j in json.loads(run("list"))["jobs"] if j["id"] == fail_j["id"])
+        check(rel_fail in jb_fail["note"] and "boom check" in jb_fail["note"],
+              "the job note names the check and the output file")
+        pass_j = js("add", "proj", "Check pass saves output", "--done", "ok check::sh -c 'echo marker-ok'")["job"]
+        r_pass = js("run", pass_j["id"])
+        pass_path = os.path.join(home, "crew", "runs", pass_j["id"], "checks", "1-passed.txt")
+        check(r_pass["state"] == "done", "a passing done check lets the job finish")
+        check(os.path.isfile(pass_path) and "marker-ok" in open(pass_path, encoding="utf-8").read(),
+              "passed check output is in checks/1-passed.txt")
         # the digest
         d = js("digest", "--no-send")
         html = open(d["html"]).read()
+        check(rel_fail in html, "the digest shows the path to the failed check output")
         check(os.path.exists(d["html"]) and "Finished, with evidence" in html and "Waiting for you" in html and "Usage against the cap" in html,
               "the digest has what finished, what waits and the usage")
         check("stand-in finished" not in html or "commit" in html, "finished jobs show their commits")
