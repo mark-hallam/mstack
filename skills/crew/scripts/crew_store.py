@@ -136,7 +136,7 @@ def job_id(pid, key):
 
 
 def new_job(pid, title, outcome="", done=None, tier="fast", estimate=None, unattended=True, files=None,
-            runner="auto", source="manual", key=None, stream="", context="", batch=""):
+            runner="auto", source="manual", key=None, stream="", context="", batch="", needs=None):
     key = key or title
     tier = tier if tier in TIERS else "fast"
     return {"id": job_id(pid, key), "project": pid, "stream": stream, "title": title.strip(),
@@ -144,7 +144,8 @@ def new_job(pid, title, outcome="", done=None, tier="fast", estimate=None, unatt
             "estimate_tokens": int(estimate if estimate is not None else {"small": 40000, "fast": 120000, "top": 400000}[tier]),
             "unattended": bool(unattended), "files": list(files or []), "runner": runner, "source": source,
             "key": key, "batch": batch, "context": context, "state": "todo", "created": stamp(), "started": "",
-            "finished": "", "evidence": [], "usage": {}, "question": "", "default": "", "note": "", "tries": 0}
+            "finished": "", "evidence": [], "usage": {}, "question": "", "default": "", "note": "", "tries": 0,
+            "needs": list(needs) if needs else []}
 
 
 def add_job(q, job):

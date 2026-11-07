@@ -81,7 +81,9 @@ folders and is never inside a repository. `crew.py init` writes the starter in `
 ## Jobs
 
 A job in `~/.mstack/crew/queue.json` carries: `id`, `project`, `stream`, `title`, `outcome`, `done` (each
-`"what::command"` or just `"what"`), `tier`, `estimate_tokens`, `unattended`, `files`, `runner`, `source`,
+`"what::command"` or just `"what"`), `needs` (shared resources such as `chrome`, set when a scan or `add`
+sees tests, `run_all`, an evaluator source, or you pass `crew.py add --needs chrome`), `tier`, `estimate_tokens`,
+`unattended`, `files`, `runner`, `source`,
 `batch`, `context`, `state` (`todo`, `doing`, `done`, `question`, `blocked`, `failed`, `skipped`), `evidence`,
 `usage` (tokens, the list price the platform reports for information, the window after the run), `question`
 and `default`, `note`, `tries`. Each run keeps `runs/<job-id>/prompt.md`, `output.jsonl` and `result.json`.

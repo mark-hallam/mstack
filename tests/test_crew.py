@@ -18,6 +18,8 @@ import tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TOOL = os.path.join(ROOT, "skills", "crew", "scripts", "crew.py")
+LOOP = os.path.join(ROOT, "skills", "multi-evaluator", "scripts", "eval_loop.py")
+LOCKS = os.path.join(ROOT, "skills", "mstack", "scripts")
 failures = []
 
 FAKE_RUNNER = r'''
@@ -188,6 +190,66 @@ def main():
         b = next(j for j in q["jobs"] if j["title"].endswith("for B"))
         check(n["waiting"].get(b["id"], "").startswith("another job is running"), "a job on the same files waits while the other runs")
         json.dump(dict(st, running=[]), open(os.path.join(home, "crew", "state.json"), "w"))
+        # chrome: inferred needs, the lock, and two projects at once
+        chrome_j = js("add", "proj", "Run full tests", "--tier", "small",
+                      "--done", "all pass::python3 tests/run_all.py", "--outcome", "report only")
+        check(chrome_j["job"].get("needs") == ["chrome"], "a done check that names run_all gets needs chrome")
+        eval_job = next(j for j in json.loads(run("list", "--all"))["jobs"] if j["source"].startswith("evaluator"))
+        q_full = json.load(open(os.path.join(home, "crew", "queue.json")))
+        check((next(j for j in q_full["jobs"] if j["id"] == eval_job["id"]).get("needs") or []) == ["chrome"],
+              "evaluator source jobs always need chrome")
+        lock_dir = os.path.join(home, "locks")
+        os.makedirs(lock_dir, exist_ok=True)
+        with open(os.path.join(lock_dir, "chrome.json"), "w") as fh:
+            json.dump({"owner": "multi-evaluator review", "pid": os.getpid(), "since": "2026-11-07T10:00:00"}, fh)
+        n = js("next", MSTACK_CREW_NO_PROBE="1")
+        why = n["waiting"].get(chrome_j["job"]["id"], "")
+        check(why.startswith("waiting for chrome") and "multi-evaluator review" in why,
+              "next waits for chrome and names the lock holder")
+        with open(os.path.join(lock_dir, "chrome.json"), "w") as fh:
+            json.dump({"owner": "gone", "pid": 999999999, "since": "2026-11-07T09:00:00"}, fh)
+        n = js("next", MSTACK_CREW_NO_PROBE="1")
+        check(not n["waiting"].get(chrome_j["job"]["id"], "").startswith("waiting for chrome"),
+              "a stale chrome lock does not block the job")
+        stale_lock = os.path.join(lock_dir, "chrome.json")
+        if os.path.exists(stale_lock):
+            os.remove(stale_lock)
+        repo2 = os.path.join(work, "proj2")
+        os.makedirs(repo2)
+        subprocess.run(["git", "-C", repo2, "init", "-q", "-b", "main"], check=True)
+        git(repo2, "add", "-A")
+        subprocess.run(["git", "-C", repo2, "-c", "user.name=t", "-c", "user.email=t@localhost", "commit", "-qm", "init", "--allow-empty"], check=True)
+        cfg2 = json.load(open(os.path.join(home, "crew", "config.json")))
+        cfg2["projects"].append({"id": "proj2", "path": repo2, "branch": "main", "stream": "other", "test": "true",
+                                 "sources": []})
+        json.dump(cfg2, open(os.path.join(home, "crew", "config.json"), "w"))
+        qa = js("add", "proj", "Chrome job A", "--tier", "small", "--done", "x::python3 tests/run_all.py")["job"]["id"]
+        qb = js("add", "proj2", "Chrome job B", "--tier", "small", "--done", "x::python3 tests/run_all.py")["job"]["id"]
+        with open(os.path.join(lock_dir, "chrome.json"), "w") as fh:
+            json.dump({"owner": "multi-evaluator review", "pid": os.getpid(), "since": "2026-11-07T10:00:00"}, fh)
+        t = js("tick", "--max", "2", MSTACK_CREW_NO_PROBE="1")
+        ran_chrome = [r["job"] for r in t["ran"] if r["job"] in (qa, qb)]
+        check(len(ran_chrome) == 0, "two chrome jobs on different projects do not run while chrome is held")
+        os.remove(os.path.join(lock_dir, "chrome.json"))
+        if LOCKS not in sys.path:
+            sys.path.insert(0, LOCKS)
+        import locks as mstack_locks
+        os.environ["MSTACK_HOME"] = home
+        mstack_locks.write_lock("chrome", "crew test holder", os.getpid())
+        review = os.path.join(work, "mini-review")
+        os.makedirs(os.path.join(review, "rounds", "r1", "briefs"))
+        with open(os.path.join(review, "mstack-eval.json"), "w") as fh:
+            json.dump({"name": "Mini", "about": "x", "persona": "x", "target": {"url": "http://127.0.0.1:9/", "start": ["true"]},
+                       "views": [], "journeys": [{"id": 1, "name": "J", "task": "t"}],
+                       "reviewers": [{"id": "fast", "kind": "command", "shared_chrome": True, "timeout_minutes": 0.05,
+                                      "command": "true"}]}, fh)
+        with open(os.path.join(review, "rounds", "r1", "briefs", "fast.md"), "w") as fh:
+            fh.write("brief")
+        rv = subprocess.run([sys.executable, LOOP, "review", "--dir", review, "--cdp-port", "19999"],
+                            capture_output=True, text=True, env=dict(env, MSTACK_HOME=home), timeout=30)
+        mstack_locks.release("chrome")
+        check(rv.returncode != 0 and "crew test holder" in (rv.stdout + rv.stderr),
+              "review with a held chrome lock prints who holds it and exits non-zero")
         # the heavy job waits for quiet hours or away
         with open(os.path.join(home, "crew", "config.json"), "w") as fh:
             json.dump(dict(cfg, quiet_hours={"start": "03:00", "end": "03:01"}), fh)
