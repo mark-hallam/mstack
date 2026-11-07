@@ -22,7 +22,7 @@ CONTROL = "control"
 
 def round_reviewers(p, n):
     """Reviewer ids that round n had scoring briefs for, or today's config when briefs are not written yet."""
-    config_order = [r["id"] for r in p.reviewers()]
+    config_order = [r["id"] for r in p.enabled_reviewers()]
     config_ids = set(config_order)
     briefs_dir = p.rdir(n, "briefs")
     if not os.path.isdir(briefs_dir):
@@ -187,7 +187,7 @@ def next_step(p):
     st = round_state(p, n)
     if st["shots"] == 0 and p.views():
         return "capture --round %d" % n
-    if len(st["briefs"]) < len(p.reviewers()):
+    if len(st["briefs"]) < len(p.enabled_reviewers()):
         return "brief --round %d" % n
     if st["missing_verdicts"]:
         parts = []

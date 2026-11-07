@@ -87,11 +87,31 @@ a one point move looks like progress.
 
 - `kind: "agent"`: the agent running the loop starts this reviewer itself, in fresh context, with the brief,
   and saves the reply with `verdict`.
+- `enabled`: optional. When `false`, `brief` and `review` skip this reviewer and readiness does not count it.
+- `maker` and `model`: optional. Recorded on every saved verdict and shown in the report header as
+  `Name (maker, model)`, so a reader can tell which company's model actually ran.
 - `kind: "command"`: `review` runs the command with the brief on standard input. Placeholders: `{work}`
   (the reviewer's own work folder), `{reply}` (a file the reviewer may write its final reply to; otherwise
-  standard output is read), `{brief}`, `{round}`, `{dir}`.
+  standard output is read), `{brief}`, `{round}`, `{dir}`, `{home}` (the person's home folder).
 - `shared_chrome: true`: for sandboxed reviewers that cannot start Chrome. `review` starts a headless
   Chrome on port 9555 (change with `--cdp-port`) and the brief tells the reviewer to use it.
+
+### Cursor's command line agent (`kind: "command"`)
+
+```json
+{"id": "grok", "name": "Grok", "maker": "xAI", "model": "grok-4.7-medium", "colour": "#555",
+ "kind": "command", "enabled": true, "shared_chrome": true, "timeout_minutes": 60,
+ "command": ["{home}/.local/bin/cursor-agent", "-p", "--trust", "-f", "--model", "grok-4.7-medium",
+             "--output-format", "text", "--workspace", "{work}"]}
+```
+
+The brief arrives on standard input. `-p` with `-f` switches its shell on so it can drive the product in a real
+browser; `--mode ask` refuses tools, so it cannot drive the product. Point `--workspace` at `{work}` (the
+reviewer's own folder), never the product folder: the brief's rule "never change the product's own files" is
+the only guard. Usage comes from the person's Cursor plan; no API key.
+
+The same shape with a Claude model name (see `cursor-agent --list-models`) and `"maker": "Anthropic"` runs Claude
+through Cursor: `maker` is the model's maker, not the tool's. Only use models the person's plan includes.
 
 Other command reviewers work the same way, for example Claude Code without the agent:
 `["claude", "-p", "--allowedTools", "Bash,Read,Write"]`, or any agent with a non-interactive mode.
