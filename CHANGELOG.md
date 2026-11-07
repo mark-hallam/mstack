@@ -2,6 +2,10 @@
 
 Every release of mStack, newest first. Dates are the day the release was made.
 
+## Unreleased
+
+- New skill, design-direction: finds the look of a new product (a brief with hard rules, up to four whole working directions, a comparison page with a recommendation, the person's pick, structure-only variants with numbered questions, a locked brand file). multi-evaluator's config can name that brand file so its briefs list the brand rules.
+
 ## 0.5.0, 7 November 2026
 
 - multi-evaluator: the real-people step after "ready for people" is optional wording now; the stopping rule

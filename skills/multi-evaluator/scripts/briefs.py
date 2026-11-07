@@ -13,6 +13,7 @@ Two briefs per reviewer per round:
 A web chat reviewer (kind "chat") gets a paste-ready scoring brief: a public address if the product has
 one, otherwise the fixed screenshots and their visible text to upload, and the brief says which.
 """
+import json
 import os
 import re
 import shlex
@@ -125,6 +126,18 @@ def chat_setup_lines(p, n, rid):
     return lines
 
 
+def brand_rules(p):
+    """The rules in the locked brand file the config names under "brand" (made by the design-direction skill)."""
+    path = p.cfg.get("brand")
+    if not path:
+        return []
+    try:
+        with open(path if os.path.isabs(path) else os.path.join(p.dir, path), encoding="utf-8") as fh:
+            return [str(r) for r in json.load(fh).get("rules", [])]
+    except (OSError, ValueError, AttributeError):
+        return []
+
+
 def journey_lines(p, n):
     lines = ["## The journeys for this round (score each 0 to 10)", ""]
     for j in p.journeys():
@@ -138,7 +151,7 @@ def journey_lines(p, n):
     lines += ["", "## Score each journey on", "", "A journey only scores 10 when it meets every one of these.", ""]
     for c in p.criteria(n):
         lines.append("- **%s**: %s" % (c["name"], c.get("means", "")))
-    rules = p.cfg.get("rules") or []
+    rules = list(p.cfg.get("rules") or []) + brand_rules(p)
     if rules:
         lines += ["", "## Rules your fixes must respect (not scored)", "",
                   "Do not score against these; they bound what a fix may change."]
