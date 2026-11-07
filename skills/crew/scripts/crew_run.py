@@ -2,8 +2,9 @@
 """Run one crew job: a small focused brief, the cheapest runner and model that fits, a side branch in its own
 worktree, the Mac kept awake only while it runs, and evidence (commits, test results, tokens) recorded.
 
-No retry loops: a job that cannot finish files a question or is marked blocked, and the digest shows it.
+A blocked or failed attempt may be tried again up to max_attempts; a question always waits for the person.
 """
+import datetime
 import json
 import os
 import re
@@ -41,19 +42,56 @@ def tier_model(cfg, runner, tier):
     return (cfg["runners"].get(runner, {}).get("models") or {}).get(tier) or ""
 
 
-def pick_runner(cfg, job, budgets):
-    """The runner for a job: the one it names, else the readable runner with the most headroom."""
-    if job.get("runner") in st.RUNNERS:
-        return job["runner"]
+def runner_resting(state, name):
+    until = (state or {}).get("runner_cooldowns", {}).get(name, "")
+    return bool(until and until > st.stamp())
+
+
+def pick_runner(cfg, job, budgets, state=None):
+    """The runner for a job: the one it names when free, else another with headroom; required runners wait out cooldown."""
+    named = job.get("runner")
+    if named in st.RUNNERS and job.get("runner_required"):
+        return named
+    if named in st.RUNNERS and not runner_resting(state, named):
+        return named
     best, best_room = "", -1e9
     for name in st.RUNNERS:
+        if runner_resting(state, name):
+            continue
         b = budgets.get(name)
         if not b or b["mode"] == "ask" or not st.have((cfg["runners"][name].get("command") or [name])[0]):
             continue
-        room = b["headroom"] if b["headroom"] is not None else -100          # conservative runners come last
+        room = b["headroom"] if b["headroom"] is not None else -100
         if room > best_room:
             best, best_room = name, room
     return best
+
+
+def max_attempts(cfg):
+    return int(cfg.get("max_attempts", 3))
+
+
+def retry_at():
+    return st.stamp(st.now() + datetime.timedelta(minutes=15))
+
+
+def append_attempt(job, runner, model, started, result, note, check_file=""):
+    job.setdefault("attempts", []).append({"runner": runner, "model": model or "", "started": started or st.stamp(),
+                                          "finished": st.stamp(), "result": result, "note": (note or "")[:300],
+                                          "check_file": check_file or ""})
+
+
+def schedule_retry(cfg, job, state, runner, result, note):
+    """Put a blocked or failed job back in the queue, or park it when attempts are used up."""
+    n = len(job.get("attempts") or [])
+    if n < max_attempts(cfg):
+        job.update(state="todo", note="", finished="", retry_after=retry_at())
+        state.setdefault("runner_cooldowns", {})[runner] = retry_at()
+        return True
+    job["state"] = result
+    job["note"] = ("%d attempts: %s" % (n, note or "no reason"))[:300]
+    job["retry_after"] = ""
+    return False
 
 
 def branch_name(path, job_id):
@@ -109,6 +147,17 @@ def build_prompt(cfg, p, job, workdir, branch):
         lines += ["", "Project notes: %s" % p["notes"]]
     if p.get("mode") == "in_place":
         lines += ["", "This project runs in place: write drafts only, commit nothing, and list the files you changed."]
+    attempts = job.get("attempts") or []
+    if attempts:
+        last = attempts[-1]
+        lines += ["", "Last attempt:", "- Result: %s" % last.get("result", ""), "- Note: %s" % last.get("note", "")]
+        cf = last.get("check_file")
+        if cf:
+            path = os.path.join(st.home("runs", job["id"]), cf)
+            if os.path.isfile(path):
+                text = open(path, encoding="utf-8").read().splitlines()
+                lines += ["", "Failing check output (first 40 lines):"]
+                lines += text[:40]
     lines += ["", RULES, "", FINISH]
     return "\n".join(lines)
 
@@ -256,12 +305,16 @@ def run_job(cfg, q, state, job, runner, dry_run=False):
     cmd = runner_command(cfg, runner, p, job, workdir, prompt)
     rdir = st.home("runs", job["id"])
     os.makedirs(rdir, exist_ok=True)
-    with open(os.path.join(rdir, "prompt.md"), "w", encoding="utf-8") as fh:
+    anum = len(job.get("attempts") or []) + 1
+    adir = os.path.join(rdir, "attempt-%d" % anum)
+    os.makedirs(adir, exist_ok=True)
+    prompt_path = os.path.join(adir if not dry_run else rdir, "prompt.md")
+    with open(prompt_path, "w", encoding="utf-8") as fh:
         fh.write(prompt)
     if dry_run:
         return {"job": job["id"], "runner": runner, "workdir": workdir, "branch": branch,
                 "command": [c if c != prompt else "<prompt.md>" for c in cmd],
-                "prompt": os.path.join(rdir, "prompt.md"), "dry_run": True}
+                "prompt": prompt_path, "dry_run": True}
     needs = list(job.get("needs") or [])
     for res in needs:
         if not locks.acquire(res, job["id"]):
@@ -286,10 +339,10 @@ def run_job(cfg, q, state, job, runner, dry_run=False):
         finally:
             state["running"] = [r for r in state["running"] if r["job"] != job["id"]]
             st.save_state(state)
-        with open(os.path.join(rdir, "output.jsonl"), "w", encoding="utf-8") as fh:
+        with open(os.path.join(adir, "output.jsonl"), "w", encoding="utf-8") as fh:
             fh.write(stdout)
         if stderr:
-            with open(os.path.join(rdir, "stderr.txt"), "w", encoding="utf-8") as fh:
+            with open(os.path.join(adir, "stderr.txt"), "w", encoding="utf-8") as fh:
                 fh.write(stderr[-20000:])
         usage.record_job_usage(runner, stdout, job)
         text = reply_text(runner, stdout)
@@ -298,25 +351,48 @@ def run_job(cfg, q, state, job, runner, dry_run=False):
         evidence = ["commit %s" % c for c in commits] + maybe_push(p, workdir, branch, commits)
         if block.get("evidence"):
             evidence += [str(e) for e in block["evidence"]][:10]
-        checks_ok, check_lines, check_failures = run_checks(job, workdir, rdir) if block.get("status") == "done" else (False, [], [])
+        checks_ok, check_lines, check_failures = run_checks(job, workdir, adir) if block.get("status") == "done" else (False, [], [])
+        for f in check_failures:
+            f["file"] = os.path.join("attempt-%d" % anum, f["file"])
         evidence += check_lines
         job["evidence"] = evidence
+        model = tier_model(cfg, runner, job["tier"])
+        started = job.get("started") or st.stamp()
         job["note"] = str(block.get("note") or ("the runner exited %d" % code if not block else ""))[:300]
+        result = "blocked"
+        check_file = ""
         if code != 0 and not block:
-            job["state"], job["note"] = "failed", ("the runner exited %d: %s" % (code, stderr.strip()[-200:]))[:300]
+            result, job["note"] = "failed", ("the runner exited %d: %s" % (code, stderr.strip()[-200:]))[:300]
         elif block.get("status") == "question":
+            result = "question"
             job["state"], job["question"], job["default"] = "question", str(block.get("question", ""))[:500], str(block.get("default", ""))[:300]
             q["questions"].append({"key": "job-" + job["id"], "job": job["id"], "project": job["project"], "asked": st.stamp(),
                                    "answer": "", "question": job["question"], "default": job["default"]})
         elif block.get("status") == "done" and checks_ok:
+            result = "done"
             job["state"] = "done"
         elif block.get("status") == "done":
             parts = ["%s; output in runs/%s/%s" % (f["what"], job["id"], f["file"]) for f in check_failures]
-            job["state"], job["note"] = "blocked", ("the runner said done but a done check failed: " + "; ".join(parts))[:300]
+            result = "blocked"
+            job["note"] = ("the runner said done but a done check failed: " + "; ".join(parts))[:300]
+            check_file = check_failures[0]["file"] if check_failures else ""
+        elif block.get("status") == "blocked":
+            result = "blocked"
+            job["note"] = str(block.get("note") or job.get("note") or "")[:300]
         else:
-            job["state"] = "blocked"
+            result = "blocked"
             job["note"] = job["note"] or "no finishing block in the reply; nothing is assumed"
-        job["finished"] = st.stamp()
+        append_attempt(job, runner, model, started, result, job.get("note", ""), check_file)
+        if result == "question":
+            job["state"] = "question"
+            job["finished"] = st.stamp()
+        elif result == "done":
+            job["finished"] = st.stamp()
+        elif result in ("blocked", "failed"):
+            if not schedule_retry(cfg, job, state, runner, result, job["note"]):
+                job["finished"] = st.stamp()
+        with open(os.path.join(adir, "result.json"), "w", encoding="utf-8") as fh:
+            json.dump({"job": job, "reply": text[-4000:]}, fh, indent=2)
         with open(os.path.join(rdir, "result.json"), "w", encoding="utf-8") as fh:
             json.dump({"job": job, "reply": text[-4000:]}, fh, indent=2)
         finish_workspace(p, workdir, branch, keep_branch=bool(commits))

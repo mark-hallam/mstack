@@ -25,6 +25,7 @@ DEFAULTS = {
     "usage_max_age_minutes": 90,                 # older readings are stale; a probe is allowed when stale
     "probe": True,                               # a one word call to read a window when no fresh reading exists
     "conservative": {"jobs_per_day": 3},         # when a runner's usage cannot be read: overnight only, this many a day
+    "max_attempts": 3,                           # automatic tries per job before it is parked (at most 3)
     "digest": {"at": "07:00"},
     "tick_minutes": 15,
     "runners": {
@@ -95,6 +96,7 @@ def merge(base, mine):
 
 def load_config():
     cfg = merge(DEFAULTS, read_json(home("config.json"), {}))
+    cfg["max_attempts"] = min(max(1, int(cfg.get("max_attempts", 3))), 3)
     for p in cfg["projects"]:
         p.setdefault("id", os.path.basename(p.get("path", "").rstrip("/")) or "project")
         p.setdefault("stream", "work")
@@ -124,7 +126,8 @@ def save_queue(q):
 
 
 def load_state():
-    return read_json(home("state.json"), {"paused": False, "running": [], "daily": {}, "digest_sent": ""})
+    return read_json(home("state.json"), {"paused": False, "running": [], "daily": {}, "digest_sent": "",
+                                          "runner_cooldowns": {}})
 
 
 def save_state(s):
@@ -145,6 +148,7 @@ def new_job(pid, title, outcome="", done=None, tier="fast", estimate=None, unatt
             "unattended": bool(unattended), "files": list(files or []), "runner": runner, "source": source,
             "key": key, "batch": batch, "context": context, "state": "todo", "created": stamp(), "started": "",
             "finished": "", "evidence": [], "usage": {}, "question": "", "default": "", "note": "", "tries": 0,
+            "attempts": [], "retry_after": "", "runner_required": False,
             "needs": list(needs) if needs else []}
 
 

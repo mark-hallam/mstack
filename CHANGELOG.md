@@ -4,6 +4,9 @@ Every release of mStack, newest first. Dates are the day the release was made.
 
 ## Unreleased
 
+- crew: a job that fails a check, gets no result block, or whose runner exits non zero is retried automatically
+  up to three times (never when the runner asked a question), then parked; each attempt is kept under
+  `runs/<job-id>/attempt-<n>/`.
 - crew: jobs declare shared resources such as `chrome`; crew and multi-evaluator review take a lock under
   `~/.mstack/locks` so a done check that runs the full test suite does not clash with a review on the same Mac.
 - multi-evaluator: command line reviewers can use Cursor's agent with a `{home}` placeholder; every saved

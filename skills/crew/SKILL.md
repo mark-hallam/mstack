@@ -64,7 +64,8 @@ drive it. Python 3.9 or later, standard library only.
 5. Runs it: a short brief with only that job's files, the cheapest runner and model that fit, a side branch
    in its own worktree, the Mac kept awake only for the run (`caffeinate`, no setting changed), the hard
    rules in the brief. The runner ends with one JSON block: done with evidence, a question with a default,
-   or blocked. No retry loops: a failed check or a missing block parks the job for the person. Tokens and the
+   or blocked. A failed check, a missing block, or a non zero exit may be tried again automatically (up to
+   three times, never for a question), then the job is parked for the person. Tokens and the
    window after the run are recorded on the job.
 6. After the digest hour (07:00 by default), once a day, writes the digest and pings.
 

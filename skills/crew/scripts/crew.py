@@ -64,15 +64,21 @@ def why_not(cfg, q, state, job, budgets, running):
     """An empty string when the job may run now, else the reason it waits."""
     if job["state"] != "todo":
         return "state is %s" % job["state"]
+    ra = job.get("retry_after")
+    if ra and ra > st.stamp():
+        return "retry at %s" % ra
     if not job.get("unattended", True):
         return "needs the person in it"
     nb = job.get("not_before")
     if nb and nb > st.stamp():
         return "not before %s" % nb
-    r = runner.pick_runner(cfg, job, budgets)
+    r = runner.pick_runner(cfg, job, budgets, state)
     if not r:
         asks = [b["runner"] for b in budgets.values() if b["mode"] == "ask"]
         return "no runner available: %s" % ("waiting for the person's answer on %s" % ", ".join(asks) if asks else "no runner command found")
+    cd = (state.get("runner_cooldowns") or {}).get(r, "")
+    if cd and cd > st.stamp():
+        return "%s is resting after a failure until %s" % (r, cd)
     b = budgets[r]
     if b["mode"] == "ask":
         return "%s is at the person's reserve; waiting for their answer" % r
@@ -167,7 +173,7 @@ def cmd_next(args):
     cfg, q, state = st.load_config(), st.load_queue(), st.load_state()
     budgets = budgets_for(cfg, q, allow_probe=False)
     job, reasons = choose(cfg, q, state, budgets)
-    print(json.dumps({"next": job, "runner": runner.pick_runner(cfg, job, budgets) if job else "", "waiting": reasons,
+    print(json.dumps({"next": job, "runner": runner.pick_runner(cfg, job, budgets, state) if job else "", "waiting": reasons,
                       "stopped": st.stopped()}, indent=2, ensure_ascii=False))
 
 
@@ -185,7 +191,7 @@ def cmd_run(args):
         if not job:
             out(args, {"ran": None, "waiting": reasons}, "nothing can run now")
             return
-    r = runner.pick_runner(cfg, job, budgets) or "claude"
+    r = runner.pick_runner(cfg, job, budgets, state) or "claude"
     result = runner.run_job(cfg, q, state, job, r, dry_run=args.dry_run)
     if not args.dry_run:
         key = "%s:%s" % (r, st.now().date().isoformat())
@@ -225,7 +231,7 @@ def cmd_tick(args):
             job, reasons = choose(cfg, q, state, budgets)
             if not job:
                 break
-            r = runner.pick_runner(cfg, job, budgets) or "claude"
+            r = runner.pick_runner(cfg, job, budgets, state) or "claude"
             ran.append(runner.run_job(cfg, q, state, job, r))
             key = "%s:%s" % (r, st.now().date().isoformat())
             state.setdefault("daily", {})[key] = state.get("daily", {}).get(key, 0) + 1
@@ -319,7 +325,7 @@ def cmd_retry(args):
     job = st.find_job(q, args.job)
     if job["state"] not in ("blocked", "failed", "skipped"):
         raise SystemExit("%s is %s, not blocked or failed" % (job["id"], job["state"]))
-    job["state"], job["note"] = "todo", ""
+    job.update(state="todo", note="", retry_after="", attempts=[], finished="")
     st.save_queue(q)
     out(args, {"job": job["id"], "state": "todo"}, "%s will run once more" % job["id"])
 

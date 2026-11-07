@@ -30,15 +30,28 @@ pct = float(os.environ.get("FAKE_PCT", "40"))
 print(json.dumps({"type": "rate_limit_event", "rate_limit_info": {"status": "allowed", "unifiedWindows": {
     "five_hour": {"utilization": pct / 100.0, "resetsAt": 4102444800}, "seven_day": {"utilization": 0.3, "resetsAt": 4102444800}}}}))
 mode = os.environ.get("FAKE_MODE", "done")
+home = os.environ.get("MSTACK_HOME", "")
+ctr = os.path.join(home, "crew", ".fake_attempt") if home else ""
+n = 1
+if ctr:
+    try:
+        n = int(open(ctr, encoding="utf-8").read().strip() or "0") + 1
+    except (OSError, ValueError):
+        n = 1
+    os.makedirs(os.path.dirname(ctr), exist_ok=True)
+    open(ctr, "w", encoding="utf-8").write(str(n))
+fail_times = int(os.environ.get("FAKE_FAIL_TIMES", "0"))
 if "Reply with the single word ok" in prompt:
     print(json.dumps({"type": "result", "result": "ok", "usage": {"input_tokens": 1, "output_tokens": 1}, "total_cost_usd": 0.0}))
     sys.exit(0)
-if mode == "done":
+if mode == "done" and n > fail_times:
     with open("crew-made.txt", "w") as fh:
         fh.write("made by the stand-in runner\n")
-    subprocess.run(["git", "add", "-A"], check=True)
-    subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@localhost", "commit", "-qm", "crew: stand-in change"], check=True)
+    subprocess.run(["git", "add", "-A"], check=False)
+    subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@localhost", "commit", "-qm", "crew: stand-in change"], check=False)
     block = {"status": "done", "evidence": ["crew-made.txt written"], "note": "stand-in finished"}
+elif mode == "done" and n <= fail_times:
+    block = {"status": "done", "evidence": ["not yet"], "note": "check should fail"}
 elif mode == "question":
     block = {"status": "question", "question": "Which colour for the button?", "default": "blue", "note": "needs a choice"}
 else:
@@ -116,6 +129,29 @@ def main():
 
     def js(*args, **extra):
         return json.loads(run(*(list(args) + ["--json"]), **extra))
+
+    def queue_path():
+        return os.path.join(home, "crew", "queue.json")
+
+    def clear_retry(jid, cooldown=True):
+        q = json.load(open(queue_path()))
+        j = next(x for x in q["jobs"] if x["id"] == jid)
+        j["retry_after"] = "2020-01-01T00:00:00"
+        json.dump(q, open(queue_path(), "w"))
+        if cooldown:
+            sp = os.path.join(home, "crew", "state.json")
+            if os.path.exists(sp):
+                st = json.load(open(sp))
+                st["runner_cooldowns"] = {}
+                json.dump(st, open(sp, "w"))
+
+    def clear_retry_after(jid):
+        clear_retry(jid, cooldown=False)
+
+    def reset_fake_ctr():
+        p = os.path.join(home, "crew", ".fake_attempt")
+        if os.path.exists(p):
+            os.remove(p)
 
     try:
         # sources become jobs
@@ -275,17 +311,22 @@ def main():
         # a failed done check keeps its output; a passing check writes passed output too
         fail_j = js("add", "proj", "Check fail saves output", "--done", "boom check::sh -c 'echo boom; exit 1'")["job"]
         r_fail = js("run", fail_j["id"])
-        fail_path = os.path.join(home, "crew", "runs", fail_j["id"], "checks", "1-FAILED.txt")
-        rel_fail = "runs/%s/checks/1-FAILED.txt" % fail_j["id"]
-        check(r_fail["state"] == "blocked", "a failing done check blocks the job")
+        check(r_fail["state"] == "todo", "a failing done check schedules another attempt")
+        clear_retry(fail_j["id"])
+        js("run", fail_j["id"])
+        clear_retry(fail_j["id"])
+        r_fail = js("run", fail_j["id"])
+        fail_path = os.path.join(home, "crew", "runs", fail_j["id"], "attempt-3", "checks", "1-FAILED.txt")
+        rel_fail = "runs/%s/attempt-3/checks/1-FAILED.txt" % fail_j["id"]
+        check(r_fail["state"] == "blocked", "a failing done check blocks the job after three tries")
         check(os.path.isfile(fail_path) and "boom" in open(fail_path, encoding="utf-8").read(),
               "failed check output is in checks/1-FAILED.txt")
-        jb_fail = next(j for j in json.loads(run("list"))["jobs"] if j["id"] == fail_j["id"])
+        jb_fail = next(j for j in json.loads(run("list", "--all"))["jobs"] if j["id"] == fail_j["id"])
         check(rel_fail in jb_fail["note"] and "boom check" in jb_fail["note"],
               "the job note names the check and the output file")
         pass_j = js("add", "proj", "Check pass saves output", "--done", "ok check::sh -c 'echo marker-ok'")["job"]
         r_pass = js("run", pass_j["id"])
-        pass_path = os.path.join(home, "crew", "runs", pass_j["id"], "checks", "1-passed.txt")
+        pass_path = os.path.join(home, "crew", "runs", pass_j["id"], "attempt-1", "checks", "1-passed.txt")
         check(r_pass["state"] == "done", "a passing done check lets the job finish")
         check(os.path.isfile(pass_path) and "marker-ok" in open(pass_path, encoding="utf-8").read(),
               "passed check output is in checks/1-passed.txt")
@@ -340,6 +381,85 @@ def main():
             check(not os.path.exists(os.path.join(agents, "com.mstack.crew.plist")), "uninstall removes it")
         s = js("status")
         check(isinstance(s["next_step"], str) and s["jobs"]["done"] >= 2, "status says where crew stands and what to do next")
+        # bounded retries before a job is parked
+        reset_fake_ctr()
+        retry_j = js("add", "proj", "Retry until file exists", "--tier", "small",
+                     "--done", "file there::test -f crew-made.txt", "--outcome", "create crew-made.txt")["job"]
+        r1 = js("run", retry_j["id"], FAKE_FAIL_TIMES="2")
+        check(r1["state"] == "todo" and r1.get("note", "") == "", "first failing check sends the job back to todo")
+        q_retry = json.load(open(queue_path()))
+        j1 = next(j for j in q_retry["jobs"] if j["id"] == retry_j["id"])
+        check(len(j1.get("attempts") or []) == 1 and j1["attempts"][0]["result"] == "blocked",
+              "the first attempt is recorded as blocked")
+        clear_retry(retry_j["id"])
+        r2 = js("run", retry_j["id"], FAKE_FAIL_TIMES="2")
+        clear_retry(retry_j["id"])
+        r3 = js("run", retry_j["id"], FAKE_FAIL_TIMES="2")
+        check(r3["state"] == "done", "two failures then a pass ends done")
+        jdone = next(j for j in json.load(open(queue_path()))["jobs"] if j["id"] == retry_j["id"])
+        check(len(jdone.get("attempts") or []) == 3,
+              "three attempts are recorded when the job passes on the third try")
+        rdir = os.path.join(home, "crew", "runs", retry_j["id"])
+        check(all(os.path.isdir(os.path.join(rdir, "attempt-%d" % i)) for i in (1, 2, 3)),
+              "three attempt folders exist under the run folder")
+        reset_fake_ctr()
+        triple = js("add", "proj", "Always fails check", "--tier", "small",
+                    "--done", "never::test -f crew-made.txt", "--outcome", "never")["job"]
+        for _ in range(3):
+            js("run", triple["id"], FAKE_FAIL_TIMES="99")
+            clear_retry(triple["id"])
+        j3 = next(j for j in json.load(open(queue_path()))["jobs"] if j["id"] == triple["id"])
+        check(j3["state"] == "blocked" and j3["note"].startswith("3 attempts:"),
+              "three failed attempts park the job with a 3 attempts note")
+        qpark = js("run", FAKE_MODE="question")
+        jq = next(j for j in json.load(open(queue_path()))["jobs"] if j["id"] == qpark["job"])
+        check(jq["state"] == "question" and not jq.get("retry_after"),
+              "a question is never scheduled for retry")
+        check(len(jq.get("attempts") or []) == 1 and jq["attempts"][0]["result"] == "question",
+              "a question attempt is recorded once")
+        reset_fake_ctr()
+        brief_j = js("add", "proj", "Brief retry context", "--tier", "small",
+                     "--done", "x::test -f crew-made.txt")["job"]
+        js("run", brief_j["id"], FAKE_FAIL_TIMES="1")
+        clear_retry(brief_j["id"])
+        dr_b = js("run", brief_j["id"], "--dry-run", FAKE_FAIL_TIMES="1")
+        brief_text = open(dr_b["prompt"], encoding="utf-8").read()
+        check("Last attempt" in brief_text and "done check failed" in brief_text,
+              "the second attempt brief has a Last attempt section with the previous note")
+        ck = os.path.join(home, "crew", "runs", brief_j["id"], "attempt-1", "checks", "1-FAILED.txt")
+        check(os.path.isfile(ck), "the first attempt kept check output for the next brief")
+        check("Failing check output" in brief_text,
+              "the brief carries check output from the last attempt")
+        reset_fake_ctr()
+        rollout = os.path.join(codex_home, "sessions", "2026", "11", "04", "rollout-a.jsonl")
+        os.makedirs(os.path.dirname(rollout), exist_ok=True)
+        with open(rollout, "w") as fh:
+            fh.write(json.dumps({"timestamp": "2026-11-04T10:00:00.000Z", "type": "event_msg", "payload": {"type": "token_count", "rate_limits": {
+                "primary": {"used_percent": 40.0, "window_minutes": 300, "resets_at": 4102444800},
+                "secondary": {"used_percent": 20.0, "window_minutes": 10080, "resets_at": 4102444800}}}}) + "\n")
+        usage_p = os.path.join(home, "crew", "usage.json")
+        if os.path.exists(usage_p):
+            os.remove(usage_p)
+        js("usage", MSTACK_CREW_NO_PROBE="1")
+        cool_j = js("add", "proj", "Runner swap", "--tier", "small", "--runner", "claude",
+                    "--done", "x::true", "--outcome", "x")["job"]
+        js("run", cool_j["id"], FAKE_MODE="blocked")
+        clear_retry_after(cool_j["id"])
+        dr_sw = js("run", cool_j["id"], "--dry-run", "--force", MSTACK_CREW_NO_PROBE="1")
+        check(dr_sw["runner"] == "codex",
+              "after claude fails, the next attempt prefers codex when the runner is not required")
+        cool_cd = js("add", "proj", "Runner pinned", "--tier", "small", "--runner", "claude",
+                      "--done", "x::true")["job"]
+        q_pin = json.load(open(queue_path()))
+        pin = next(j for j in q_pin["jobs"] if j["id"] == cool_cd["id"])
+        pin["runner_required"] = True
+        json.dump(q_pin, open(queue_path(), "w"))
+        js("run", cool_cd["id"], "--force", FAKE_MODE="blocked")
+        clear_retry_after(cool_cd["id"])
+        st_pin = js("status", MSTACK_CREW_NO_PROBE="1")
+        why_pin = st_pin["waiting"].get(cool_cd["id"], "")
+        check("resting" in why_pin and "claude" in why_pin,
+              "a runner_required job waits for its runner to finish resting")
     finally:
         shutil.rmtree(work, ignore_errors=True)
     print("\n%s" % ("all checks passed" if not failures else "%d checks failed" % len(failures)))
