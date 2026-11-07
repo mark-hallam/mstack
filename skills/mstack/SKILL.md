@@ -28,7 +28,8 @@ The shared tool is `scripts/mstack.py` (next to this file). Below, `MSTACK` mean
 ## Switching skills off
 
 - For good: `MSTACK disable <skill>` (and `enable <skill>`). This writes `~/.mstack/config.json`:
-  `{"disabled": ["ping-me"]}`. The person can also edit that file by hand.
+  `{"disabled": ["ping-me"]}`. The person can also edit that file by hand. It also holds `max_questions`
+  (how many questions outcome-first asks in one batch, default 6).
 - For one task: if the person says "don't use <skill>" (or "no pings", "just do it", and so on), do not use
   it for that task. No file changes.
 - Every mStack skill checks the config before it starts. `MSTACK enabled <skill>` exits 0 when it is on.

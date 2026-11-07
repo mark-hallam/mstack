@@ -2,6 +2,10 @@
 
 Every release of mStack, newest first. Dates are the day the release was made.
 
+## Unreleased
+
+- outcome-first: a question budget. `questions` shows at most `max_questions` (default 6, set in `~/.mstack/config.json`), the rest are taken by default, and replying "defaults" accepts them all.
+
 ## 0.6.0, 7 November 2026
 
 - multi-evaluator: every capture now measures each view (length, repeated phrases, contrast, alt text, sideways scroll,

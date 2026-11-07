@@ -38,6 +38,11 @@ accept every default.
 - Other agents: one message, a numbered list, each with "(default: ...)".
 - Always include: "Is this what done looks like?", and "May I run unattended until it is done, including
   scheduling my own resume if a usage limit stops me? (default: yes)".
+- Keep the batch short. `OUTCOME questions <slug>` shows at most `max_questions` (default 6) questions,
+  the ones without a default first. The rest are listed under "Taken by default unless you say otherwise:",
+  and the person can reply "defaults" (or "go") to accept them all: pass that straight through with
+  `OUTCOME answer <slug> defaults`. A question with no default is always asked, even past the cap. To change
+  the cap, set `"max_questions": 8` in `~/.mstack/config.json`.
 
 Do not start the work until the person has answered or said "go", **unless nobody can answer**: a headless
 run (`claude -p`, `codex exec`, a scheduled job) has no way to ask, and a person who said "just handle it,
@@ -74,7 +79,7 @@ Create the outcome before the first task starts, even for a run that asks no que
   A task without evidence is not done.
 - If you hit a decision that is genuinely the person's, or an action only they can take, queue it with
   `OUTCOME ask <slug> "<question>" --default "<your suggestion>"`, carry on with everything else, and ask
-  all queued questions in one batch only when nothing else can move. Ping them when you do (the ping-me
+  all queued questions in one batch (at most `max_questions`, see section 2) only when nothing else can move. Ping them when you do (the ping-me
   skill).
 - Everything else, decide yourself, sensibly, and note why.
 
