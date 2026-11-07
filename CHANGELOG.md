@@ -4,7 +4,10 @@ Every release of mStack, newest first. Dates are the day the release was made.
 
 ## Unreleased
 
+## Unreleased
+
 - outcome-first: a question budget. `questions` shows at most `max_questions` (default 6, set in `~/.mstack/config.json`), the rest are taken by default, and replying "defaults" accepts them all.
+- mstack: a rules file per project (`mstack rules init|show|list|import|accept`) kept in the mStack home, never in a repository; crew, multi-evaluator and design-direction briefs and the session start note all read it.
 
 ## 0.6.0, 7 November 2026
 

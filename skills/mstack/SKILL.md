@@ -59,6 +59,26 @@ chooses to share an improvement.
 3. **Sharing an improvement** is the person's choice: `MSTACK learned <skill>` prints what was learned, and
    they can open an issue or pull request on github.com/mark-hallam/mstack with it if they want to.
 
+## A rules file per project
+
+The person should not have to retype the same rules into every brief. One rules file per project lives in the
+mStack home (`~/.mstack`, or `$MSTACK_HOME`), **never in the repository**, because never-touch paths, ports and
+test families are private. A global file (`~/.mstack/rules.md`) holds what applies everywhere. The project's
+file (`~/.mstack/projects/<slug>/rules.md`) is found from the project folder or any folder inside it, so a
+worktree finds it too. Both have the same six headings, one rule per line starting with `- `:
+`## Never touch`, `## Never print`, `## Test targets`, `## Voice`, `## Working rules`, `## Done rules`.
+The project's rules come first, then the global ones it did not already say. A project heading whose only rule
+is `- none` drops the global rules under that heading.
+
+- `MSTACK rules init [--global] [--project <folder>]` writes the template (it never overwrites without `--force`).
+- `MSTACK rules show [--project <folder>] [--brief]` prints the merged rules; `--brief` is the block to paste
+  into a brief you write for another agent. The crew, multi-evaluator and design-direction briefs add it themselves.
+- `MSTACK rules import` reads the person's feedback memories and only **proposes** rules, numbered. Nothing is
+  written until `MSTACK rules accept <n> ...` (only `accept` writes rules from memories).
+- `MSTACK rules list` shows every known project.
+
+Keep real secrets out of the file: a rule may name a kind of secret ("the family name"), never the secret.
+
 ## Setting mStack up in each agent
 
 - **Claude Code**: install the plugin (`/plugin marketplace add mark-hallam/mstack`, then
