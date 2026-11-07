@@ -157,23 +157,44 @@ def result_block(text):
     return None
 
 
-def run_checks(job, workdir):
-    """Every done check with a command, run in the job's workspace. Returns (all passed, evidence lines)."""
-    ok, evidence = True, []
+def run_checks(job, workdir, rdir):
+    """Every done check with a command, run in the job's workspace. Returns (all passed, evidence lines, failures)."""
+    ok, evidence, failures = True, [], []
+    checks_dir = os.path.join(rdir, "checks")
+    os.makedirs(checks_dir, exist_ok=True)
+    n = 0
     for d in job.get("done", []):
         what, _, cmd = d.partition("::")
         if not cmd:
             continue
+        n += 1
+        combined = ""
         try:
             r = subprocess.run(["sh", "-c", cmd], cwd=workdir, capture_output=True, text=True, timeout=1800)
             passed = r.returncode == 0
+            combined = (r.stdout or "") + (r.stderr or "")
         except (OSError, subprocess.SubprocessError) as e:
             passed, r = False, None
-            evidence.append("check failed to run: %s (%s)" % (cmd, e))
-        if r is not None:
-            evidence.append("%s: %s (%s)" % ("passed" if passed else "FAILED", what.strip(), cmd))
+            combined = str(e)
+            fname = "%d-FAILED.txt" % n
+            rel = "checks/%s" % fname
+            with open(os.path.join(checks_dir, fname), "w", encoding="utf-8") as fh:
+                fh.write(combined[-20000:])
+            evidence.append("check failed to run: %s (%s), output in %s" % (cmd, e, rel))
+            failures.append({"what": what.strip(), "file": rel})
+            ok = False
+            continue
+        fname = "%d-%s.txt" % (n, "passed" if passed else "FAILED")
+        rel = "checks/%s" % fname
+        with open(os.path.join(checks_dir, fname), "w", encoding="utf-8") as fh:
+            fh.write(combined[-20000:])
+        line = "%s: %s (%s)" % ("passed" if passed else "FAILED", what.strip(), cmd)
+        if not passed:
+            line += ", output in %s" % rel
+            failures.append({"what": what.strip(), "file": rel})
+        evidence.append(line)
         ok = ok and passed
-    return ok, evidence
+    return ok, evidence, failures
 
 
 def commits_made(job, workdir, branch):
@@ -253,7 +274,7 @@ def run_job(cfg, q, state, job, runner, dry_run=False):
     evidence = ["commit %s" % c for c in commits] + maybe_push(p, workdir, branch, commits)
     if block.get("evidence"):
         evidence += [str(e) for e in block["evidence"]][:10]
-    checks_ok, check_lines = run_checks(job, workdir) if block.get("status") == "done" else (False, [])
+    checks_ok, check_lines, check_failures = run_checks(job, workdir, rdir) if block.get("status") == "done" else (False, [], [])
     evidence += check_lines
     job["evidence"] = evidence
     job["note"] = str(block.get("note") or ("the runner exited %d" % code if not block else ""))[:300]
@@ -266,7 +287,8 @@ def run_job(cfg, q, state, job, runner, dry_run=False):
     elif block.get("status") == "done" and checks_ok:
         job["state"] = "done"
     elif block.get("status") == "done":
-        job["state"], job["note"] = "blocked", "the runner said done but a done check failed: " + "; ".join(l for l in check_lines if l.startswith("FAILED"))[:250]
+        parts = ["%s; output in runs/%s/%s" % (f["what"], job["id"], f["file"]) for f in check_failures]
+        job["state"], job["note"] = "blocked", ("the runner said done but a done check failed: " + "; ".join(parts))[:300]
     else:
         job["state"] = "blocked"
         job["note"] = job["note"] or "no finishing block in the reply; nothing is assumed"
