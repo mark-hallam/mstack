@@ -14,7 +14,8 @@
 3. **Babysitting background work.** You want things to keep moving overnight, inside what you already pay for, without a surprise bill or a push you did not approve.
 4. **Guessing whether it is ready.** One opinion, usually the agent's own, on whether the thing you built is good enough to show people.
 
-mStack is five skills, one for each of those and one for being away from your desk, written for humans
+mStack is six skills: one for each of those, one for being away from your desk, and one that finds the look of a
+new product before the review loop improves it. All written for humans
 and agents alike. **You never have to call a skill by name.** Install mStack and every skill switches on
 by itself when its moment comes. Switch any of them off whenever you like.
 
@@ -53,6 +54,7 @@ Chrome or Chromium are needed only by the review loop and by phone-width screens
 | [outcome-first](skills/outcome-first/SKILL.md) | Your agent pins down the outcome you want, asks every question once (with sensible defaults), then works to a verified result on its own, in parallel, surviving restarts and usage limits, and reports once. | On |
 | [crew](skills/crew/SKILL.md) | Keeps useful work running in the background all the time, within the usage you already pay for: one queue across your projects, the cheapest model that fits each job, your 15% of every usage window kept, drafts and side branches only, one morning digest with evidence. | On |
 | [multi-evaluator](skills/multi-evaluator/SKILL.md) | Improves a product's design in rounds until it is ready for real people: every user journey 9 or better from independent AI reviewers made by different companies, agreeing within a point, with no high-severity fix open, two rounds running. Before and after screenshots and a report every round. | On |
+| [design-direction](skills/design-direction/SKILL.md) | Finds the look of a new product: a few whole working directions built from one brief, a comparison page with a recommendation, your pick, then variants that differ in structure only, then a locked brand file. | On |
 | [away-mode](skills/away-mode/SKILL.md) | Notices by itself when you are away from your computer and following from your phone, and presents every output in a form the phone can show: screenshots, PDFs, files sent to the chat, and the key points in the message. | On |
 | [mstack](skills/mstack/SKILL.md) | The index: which skills switch on when, the on and off switches, and private self-improvement ("review my skills"). | Always |
 
@@ -88,6 +90,16 @@ or paid for; each of those becomes a question with a default. A job that fails i
 times, with the last failure in its next brief, then parked for you with the check's output kept. Shared
 things such as the browser are locked, so two jobs never fight over them. One digest a day: what finished
 with commit SHAs and test results, what waits for you, and usage against the cap, with a ping.
+
+### design-direction: find the look first
+
+multi-evaluator improves a product that already has a look. This finds the look. You and your agent write
+one short brief with hard rules (one self-contained page per option, light and dark, works on a phone,
+every fact true). Up to four whole, working directions are built from it, by different AI makers if you
+like, then captured at desktop and phone in light and dark and laid out on one comparison page with a
+recommendation. You pick. Then up to three variants per round that differ in structure only (layout,
+navigation, wording, density), each round ending with numbered questions for you. Last, `lock` writes the
+chosen colours, type and radii into a brand file, checks contrast, and hands over to multi-evaluator.
 
 ### multi-evaluator: keep improving until it is ready for people
 

@@ -10,6 +10,7 @@ The review folder holds one `mstack-eval.json`. `eval_loop.py init` writes a sta
 | `name` | The product's name, shown in briefs and the report. |
 | `about` | One short paragraph for reviewers who have never seen it: what it is, who it is for, what it promises. Not the design direction: that goes in `rules`, so the scoring pass stays blind. |
 | `rules` | Optional list of constraints a fix must respect (the design direction, a locked brand, "no new pages"). Shown to reviewers as "not scored". |
+| `brand` | Optional path (relative to the review folder, or absolute) to a `brand.json` made by the design-direction skill's `lock`. Its `rules` are listed under "Rules your fixes must respect (not scored)" in every scoring brief, after `rules`. |
 | `persona` | Who the reviewers judge as, finishing the sentence "Judge it as this person: ...". |
 | `personas` | Optional list of named people, each `{"id": "child", "who": "a seven year old who reads short words"}`. A journey may name one with `"persona": "child"`; the scoring brief then says "Play this person: ..." on that journey's line. `brief` refuses a journey that names an id not listed here. |
 | `note` | Optional line under the report's title (for example "Fictional demo data."). |

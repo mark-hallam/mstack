@@ -1,0 +1,23 @@
+{
+  "name": "My product",
+  "brief": "BRIEF.md",
+  "taste": "",
+  "locked": false,
+  "picked": null,
+  "builders": [
+    {"id": "claude", "name": "Claude", "maker": "Anthropic", "kind": "agent"},
+    {"id": "codex", "name": "Codex", "maker": "OpenAI", "kind": "command", "enabled": false, "timeout_minutes": 30,
+     "command": ["codex", "exec", "-s", "workspace-write", "--skip-git-repo-check", "-C", "{options}", "-"]}
+  ],
+  "viewports": {
+    "desktop": {"w": 1440, "h": 1000},
+    "phone": {"w": 390, "h": 844, "mobile": true}
+  },
+  "timeout_minutes": 30,
+  "pairs": [
+    {"name": "text on bg", "fg": "--text", "bg": "--bg"},
+    {"name": "muted on bg", "fg": "--muted", "bg": "--bg"},
+    {"name": "accent-ink on accent", "fg": "--accent-ink", "bg": "--accent"}
+  ],
+  "rounds": []
+}

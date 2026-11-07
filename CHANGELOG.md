@@ -9,6 +9,7 @@ Every release of mStack, newest first. Dates are the day the release was made.
 - multi-evaluator: the compare pass re-grades last round's numbered fixes (done, partly, not, regressed, not
   testable, with the exact words seen), there is a new "blocker" severity that caps a journey at 5 and stops a
   round being ready, journeys can name a persona, and replies can list what could not be tested.
+- New skill, design-direction: finds the look of a new product (a brief with hard rules, up to four whole working directions, a comparison page with a recommendation, the person's pick, structure-only variants with numbered questions, a locked brand file). multi-evaluator's config can name that brand file so its briefs list the brand rules.
 
 ## 0.5.0, 7 November 2026
 

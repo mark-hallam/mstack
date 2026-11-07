@@ -27,7 +27,7 @@ def read(*p):
 
 def main():
     names = sorted(d for d in os.listdir(os.path.join(ROOT, "skills")) if os.path.exists(os.path.join(ROOT, "skills", d, "SKILL.md")))
-    check(names == ["away-mode", "crew", "mstack", "multi-evaluator", "outcome-first", "ping-me"], "the skills are: %s" % ", ".join(names))
+    check(names == ["away-mode", "crew", "design-direction", "mstack", "multi-evaluator", "outcome-first", "ping-me"], "the skills are: %s" % ", ".join(names))
     index, readme, agents, page = read("skills", "mstack", "SKILL.md"), read("README.md"), read("AGENTS.md"), read("docs", "agents.md")
     for n in names:
         text = read("skills", n, "SKILL.md")
