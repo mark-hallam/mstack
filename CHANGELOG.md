@@ -2,6 +2,11 @@
 
 Every release of mStack, newest first. Dates are the day the release was made.
 
+## Unreleased
+
+- multi-evaluator: readiness, status and the report judge each round by the reviewers that round had briefs
+  for, not today's config alone, so a reviewer added later is not treated as missing from earlier rounds.
+
 ## 0.4.1, 5 November 2026
 
 - away-mode: screenshots and PDFs now really render in the light theme. Headless Chrome ignored the old
