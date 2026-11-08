@@ -2,7 +2,7 @@
 
 Every release of mStack, newest first. Dates are the day the release was made.
 
-## Unreleased
+## 0.7.0, 8 November 2026
 
 - mstack: `mstack status` shows every project at once (what waits for you first, with the command that answers it, then what is running, the latest review, what shipped last, usage and folders that are gone); `--render` makes a PDF and phone picture, and the crew digest points to it.
 - mstack: `mstack brief <tester|reviewer|worker|research|security> "<goal>"` turns one line into a complete brief (reading list, the project's rules, the job, the output format and the finishing block), can make a worktree for a worker, and can start the brief on a runner with `--run`.
