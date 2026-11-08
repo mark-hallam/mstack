@@ -2,6 +2,10 @@
 
 Every release of mStack, newest first. Dates are the day the release was made.
 
+## 0.7.1, 8 November 2026
+
+- mstack: the skill description now names `mstack status`, `mstack brief` and `mstack rules`, so a clean install routes "what is happening across my projects" and "write a tester's brief" to them. Fresh-install routing: 10 of 10 (was 8 of 10 on 0.7.0).
+
 ## 0.7.0, 8 November 2026
 
 - mstack: `mstack status` shows every project at once (what waits for you first, with the command that answers it, then what is running, the latest review, what shipped last, usage and folders that are gone); `--render` makes a PDF and phone picture, and the crew digest points to it.
