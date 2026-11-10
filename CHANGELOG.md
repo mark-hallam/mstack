@@ -2,6 +2,22 @@
 
 Every release of mStack, newest first. Dates are the day the release was made.
 
+## 0.7.2, 10 November 2026
+
+- crew (security): a job's agent may run only the project's exact check commands (the project's `test`, its done checks and the job's own), never a whole program such as `python3`. A check that contains a shell operator is not handed to the agent, and the brief says the crew runs every check again itself.
+- ping-me (privacy): a notification sent by a hook or by Codex says only that a turn finished or is waiting, with the project folder's name. The agent's reply text stays on the computer unless `notify_reply_text` is set in `~/.mstack/config.json`, and previews and `ping test` say what text goes where.
+- mstack: one skills catalog (`skills/mstack/catalog.json`) generates the skill tables in the index skill, AGENTS.md and docs/agents.md, and the routing block and the session start note read the same lines, so every agent is told about `status`, `brief` and `rules`. `mstack.py catalog --check` fails on any difference and `--write` rewrites them.
+- mstack: `~/.mstack/bin/mstack.py` is a small launcher that finds the installed copy from `install.json`. Hooks, the Codex notify line and the routing block in another agent's instructions keep working after an update, and that block carries no path into the installed copy.
+- Every command of every tool (`mstack.py`, `away.py`, `outcome.py`, `crew.py`, `eval_loop.py`, `direction.py`) takes `--json`, and with it an error is `{"ok": false, "error": "..."}` with a non-zero exit. A test reads each tool's own command list, so a new command is covered the day it is added.
+- mstack: every `setup` form can be undone with `--remove` (a chained Codex `notify` line comes back exactly), previews name the real file behind a symbolic link, the ntfy server must be `https://`, and Claude Code settings that cannot be read are left untouched with a plain message.
+- mstack: `review` only reads, and `review --done` marks the journal reviewed. Skill names are checked, `unlearn` removes an accepted rule, `learned` numbers them, and `rules import --from` reads memories from a folder you name.
+- crew: `crew.py branches [--project] [--prune]` lists the side branches the crew made and which are merged, and the digest says when unmerged ones wait. A finished job's branch with no commits is removed; one with commits is always kept.
+- crew: the launchd label and file come from the mStack home, so a second home keeps its own schedule, and `status` reports installed only for its own home.
+- outcome-first: `check` names each open task and the command that marks one done.
+- multi-evaluator: the starter template is neutral (a first-time user, and "Familiar" means the conventions of the platform it runs on). The Cursor reviewer is `cursor`, found on PATH, with the model left to you, and `review` names a reviewer program it cannot find. design-direction's taste example is neutral too.
+- Evidence is a release step: `tests/release_check.py` installs the release into an empty profile, asks ten plain phrases and writes the numbers in README.md and docs/evidence.md from the result. The suite fails when the current version has no run recorded.
+- tests: the leak scan (safety) and the style scan are separate tools, and both run in the suite and in the workflow.
+
 ## 0.7.1, 8 November 2026
 
 - mstack: the skill description now names `mstack status`, `mstack brief` and `mstack rules`, so a clean install routes "what is happening across my projects" and "write a tester's brief" to them. Fresh-install routing: 10 of 10 (was 8 of 10 on 0.7.0).

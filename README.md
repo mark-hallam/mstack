@@ -46,7 +46,8 @@ always-applied rule, after showing it to you.
 want: https://github.com/mark-hallam/mstack/blob/main/docs/agents.md
 
 Nothing else to install: Python 3.9 or later, standard library only. Node.js 18 or later and Google
-Chrome or Chromium are needed only by the review loop and by phone-width screenshots.
+Chrome or Chromium are needed only by the review loop, by design-direction's screen captures and by
+phone-width screenshots.
 
 ## The skills
 
