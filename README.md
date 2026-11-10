@@ -142,7 +142,7 @@ and puts the 3 to 5 key points in the message itself. Never just a path.
 Only measured ones, each with its date and source in [docs/evidence.md](docs/evidence.md):
 
 <!-- evidence:routing:start -->
-- **10 of 10** plain phrases reached the right skill on a clean install of 0.7.1 (10 November 2026). Every release
+- **10 of 10** plain phrases reached the right skill on a clean install of 0.7.2 (10 November 2026). Every release
   reruns them before it ships.
 <!-- evidence:routing:end -->
 - **3 of 3** AI makers (Anthropic, OpenAI, xAI), reviewing blind in a real browser, found the same bug in

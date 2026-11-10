@@ -16,6 +16,7 @@ phrase by phrase. The phrases, and the skills counted as right for each, are in
 <!-- evidence:routing:start -->
 | Release | Date | Installed from | Agent | Phrases that reached the right skill |
 |---|---|---|---|---|
+| 0.7.2 | 10 November 2026 | the release candidate folder | Claude Code (sonnet) | **10 of 10** |
 | 0.7.1 | 10 November 2026 | GitHub (mark-hallam/mstack) | Claude Code (sonnet) | **10 of 10** |
 <!-- evidence:routing:end -->
 
