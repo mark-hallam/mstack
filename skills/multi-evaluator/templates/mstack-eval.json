@@ -1,8 +1,8 @@
 {
   "name": "My product",
   "about": "One short paragraph for reviewers who have never seen it: what it is, who it is for, what it promises. Leave the design direction out; it goes in rules.",
-  "rules": ["Constraints a fix must respect, shown to reviewers as not scored. For example: Apple clean, a sidebar and a list with a detail pane, light theme first with a dark theme."],
-  "persona": "a first-time user who is not technical, uses a Mac and an iPhone, and expects apps to work like Apple's.",
+  "rules": ["Constraints a fix must respect, shown to reviewers as not scored. For example: keep the existing navigation, light theme first with a dark theme."],
+  "persona": "a first-time user of the product who has not seen it before and is not technical.",
   "note": "",
   "target": {
     "url": "http://127.0.0.1:{port}/",
@@ -31,7 +31,7 @@
     {"name": "Clear", "means": "obvious what to do next and why, no jargon."},
     {"name": "Quick", "means": "the fewest steps, nothing asked twice."},
     {"name": "Trust", "means": "nothing happens without the person's say so; numbers show where they come from; nothing overstated."},
-    {"name": "Familiar", "means": "behaves like a well made Apple app."},
+    {"name": "Familiar", "means": "follows the conventions of the platform it runs on, so a first-time user already knows how it works."},
     {"name": "Calm", "means": "what matters first, nothing cluttered or shouting."},
     {"name": "Works everywhere", "means": "phone, keyboard, screen reader labels, dark mode, large text."}
   ],
@@ -58,10 +58,9 @@
     {"id": "claude", "name": "Claude", "maker": "Anthropic", "colour": "#C15F3C", "kind": "agent"},
     {"id": "codex", "name": "Codex", "maker": "OpenAI", "colour": "#1f6feb", "kind": "command", "shared_chrome": true, "timeout_minutes": 60,
      "command": ["codex", "exec", "-s", "workspace-write", "-c", "sandbox_workspace_write.network_access=true", "--skip-git-repo-check", "-C", "{work}", "-o", "{reply}", "-"]},
-    {"id": "cursor-grok", "name": "Grok via Cursor", "maker": "xAI", "model": "grok-4.7-medium", "colour": "#555", "enabled": false,
+    {"id": "cursor", "name": "Cursor agent", "model": "", "colour": "#555", "enabled": false,
      "kind": "command", "shared_chrome": true, "timeout_minutes": 60,
-     "command": ["{home}/.local/bin/cursor-agent", "-p", "--trust", "-f", "--model", "grok-4.7-medium",
-                 "--output-format", "text", "--workspace", "{work}"]}
+     "command": ["cursor-agent", "-p", "--trust", "-f", "--output-format", "text", "--workspace", "{work}"]}
   ],
   "notify": null
 }

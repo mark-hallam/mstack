@@ -10,6 +10,9 @@ $MSTACK_HOME/away.json); thresholds come from the "away" section of ~/.mstack/co
   render <file-or-url> [--out DIR]       phone-readable copies (PDF, PNG) in the outbox; see away_render.py
   outbox                                 where the copies go
 
+Every command takes --json and prints one JSON object; with --json an error is {"ok": false, "error": "..."}
+and the exit code is 1.
+
 How the answer is reached, most trusted first:
   1. The person's words: "away" wins until it expires (default 8 hours) or they say "back". "back" wins over
      hints and the idle signal for a while (default 60 minutes), but not over a locked screen or a sleeping
@@ -303,11 +306,41 @@ def status(hints=None, cfg=None):
                      "local": "present as usual: local paths and open commands are fine"}[deliver]}
 
 
+class JsonParser(argparse.ArgumentParser):
+    """An argparse parser whose usage errors become {"ok": false, "error": ...} when --json was given."""
+    json_mode = False
+
+    def error(self, message):
+        if JsonParser.json_mode:
+            raise SystemExit("%s: %s" % (self.prog, message))
+        super().error(message)
+
+
+def run_cli(ap, argv=None):
+    """Parse and run. With --json, every error (a message, a usage mistake or a crash) is one JSON object
+    {"ok": false, "error": ...} on standard output and the exit code is 1."""
+    argv = sys.argv[1:] if argv is None else list(argv)
+    JsonParser.json_mode = "--json" in argv
+    try:
+        args = ap.parse_args(argv)
+        args.fn(args)
+    except SystemExit as e:
+        if JsonParser.json_mode and isinstance(e.code, str):
+            print(json.dumps({"ok": False, "error": e.code}))
+            sys.exit(1)
+        raise
+    except Exception as e:
+        if not JsonParser.json_mode:
+            raise
+        print(json.dumps({"ok": False, "error": "%s: %s" % (type(e).__name__, e)}))
+        sys.exit(1)
+
+
 # ---------------------------------------------------------------- commands
 
 def cmd_status(args):
     s = status(args.hint)
-    if args.text:
+    if args.text and not args.json:
         label = {True: "away", False: "present", "unsure": "unsure"}[s["away"]]
         print("%s: %s. Deliver: %s." % (label, s["why"], s["deliver"]))
     else:
@@ -331,7 +364,10 @@ def cmd_render(args):
     sys.path.insert(0, HERE)
     import away_render
     result = away_render.render(args.target, out_dir=args.out, cfg=config(), name=args.name)
-    if args.text:
+    if args.json:
+        ok = bool(result["files"])
+        print(json.dumps(dict(result, ok=ok, **({} if ok else {"error": "; ".join(result["notes"]) or "nothing could be rendered"})), indent=2))
+    elif args.text:
         for f in result["files"]:
             print("%s  %d bytes  %s" % (f["path"], f["bytes"], f["what"]))
         for n in result["notes"]:
@@ -344,34 +380,41 @@ def cmd_render(args):
 def cmd_outbox(args):
     sys.path.insert(0, HERE)
     import away_render
-    print(away_render.outbox())
+    if args.json:
+        print(json.dumps({"ok": True, "outbox": away_render.outbox()}))
+    else:
+        print(away_render.outbox())
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = JsonParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="command", required=True)
-    s = sub.add_parser("status", help="is the person away? JSON by default")
+
+    def add(name, **kw):
+        s = sub.add_parser(name, **kw)
+        s.add_argument("--json", action="store_true", help="print one JSON object (errors too)")
+        return s
+    s = add("status", help="is the person away? JSON by default")
     s.add_argument("--hint", action="append", default=[],
                    help="something the harness told you, for example 'the user follows from another device' or "
                         "'not sent because the user is at the terminal' (repeatable)")
     s.add_argument("--text", action="store_true", help="one line instead of JSON")
     s.set_defaults(fn=cmd_status)
-    s = sub.add_parser("set", help="record the person's words")
+    s = add("set", help="record the person's words")
     s.add_argument("state", choices=("away", "back"))
     s.add_argument("--hours", type=float, help="away: how long it counts for (default from config, 8)")
     s.set_defaults(fn=cmd_set)
-    s = sub.add_parser("heard", help="classify what the person said and record it if it says away or back")
+    s = add("heard", help="classify what the person said and record it if it says away or back")
     s.add_argument("text")
     s.set_defaults(fn=cmd_heard)
-    s = sub.add_parser("render", help="make phone-readable copies of a file or address")
+    s = add("render", help="make phone-readable copies of a file or address")
     s.add_argument("target", help="an HTML, Markdown, image or PDF file, or an http(s) address")
     s.add_argument("--out", help="folder for the copies (default: the outbox)")
     s.add_argument("--name", help="base name for the copies (default: the file's own name)")
     s.add_argument("--text", action="store_true", help="one line per file instead of JSON")
     s.set_defaults(fn=cmd_render)
-    sub.add_parser("outbox", help="print the outbox folder").set_defaults(fn=cmd_outbox)
-    args = ap.parse_args(argv)
-    args.fn(args)
+    add("outbox", help="print the outbox folder").set_defaults(fn=cmd_outbox)
+    run_cli(ap, argv)
 
 
 if __name__ == "__main__":

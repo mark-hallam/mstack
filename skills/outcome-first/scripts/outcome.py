@@ -23,6 +23,7 @@ work up after a restart. Every command takes --json.
 """
 import argparse
 import budget
+from jsoncli import JsonParser, run_cli
 import datetime
 import json
 import os
@@ -211,6 +212,8 @@ def cmd_task(args):
         save(o)
         out(args, {"id": tid, "ready": [t["id"] for t in ready_tasks(o)]}, "added %s" % tid)
         return
+    if not args.state:
+        raise SystemExit("task set needs --state")
     t = next((t for t in o["tasks"] if t["id"] == args.title), None)
     if not t:
         raise SystemExit("No task %r" % args.title)
@@ -306,11 +309,17 @@ def cmd_check(args):
     data = summary(o)
     data["achieved"] = o["achieved"]
     data["unfinished_tasks"] = [t["id"] for t in o["tasks"] if t["state"] != "done"]
+    data["open_tasks"] = [{"id": t["id"], "title": t["title"], "state": t["state"], "who": t["who"]}
+                          for t in o["tasks"] if t["state"] != "done"]
+    left = "".join("\n  %s  %s (%s, %s)" % (t["id"], t["title"], t["state"], t["who"]) for t in data["open_tasks"])
+    if left:
+        data["to_mark_done"] = "task set %s <id> --state done --evidence \"...\"" % o["slug"]
+        left = "\nOpen tasks:%s\nMark one done with: %s" % (left, data["to_mark_done"])
     why = ""
     if open_qs and tasks_done and checks_pass:
         why = " A question for the person is still open (%s): answer it, or take the defaults (answer --defaults)." % ", ".join(open_qs)
     out(args, data, "%s\n%s\nprogress file: %s" % (
-        "ACHIEVED: every done check passed with evidence and no question is open." if o["achieved"] else "Not yet." + why,
+        "ACHIEVED: every done check passed with evidence and no question is open." if o["achieved"] else "Not yet." + why + left,
         "\n".join("%s %s: %s" % (d["id"], d.get("result") or "no evidence yet", d["text"]) for d in o["done"]),
         home(o["slug"], "progress.md")))
     sys.exit(0 if o["achieved"] else 1)
@@ -415,14 +424,14 @@ def cmd_resume(args):
     o["log"].append({"at": now(), "text": "Resumed."})
     save(o)
     if o.get("achieved"):
-        print("Already achieved; nothing to resume.")
+        out(args, {"ok": True, "achieved": True, "resumed": False}, "Already achieved; nothing to resume.")
         return
     r = subprocess.run(o["resume_command"], shell=True, cwd=o["cwd"])
     sys.exit(r.returncode)
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = JsonParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="command", required=True)
 
     def add(name, fn):
@@ -484,10 +493,7 @@ def main(argv=None):
     s.add_argument("slug")
     s = add("resume", cmd_resume)
     s.add_argument("slug")
-    args = ap.parse_args(argv)
-    if args.command == "task" and args.action == "set" and not args.state:
-        ap.error("task set needs --state")
-    args.fn(args)
+    run_cli(ap, argv)
 
 
 if __name__ == "__main__":

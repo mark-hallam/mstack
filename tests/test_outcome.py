@@ -79,6 +79,11 @@ def main():
 
         s = js("check", "notes", expect=1)
         check(not s["achieved"] and s["unfinished_tasks"] == ["t3"], "not achieved while a task is unfinished")
+        check([t["id"] for t in s["open_tasks"]] == ["t3"] and s["open_tasks"][0]["title"] == "Ship",
+              "check --json lists the open tasks")
+        text = run("check", "notes", expect=1)
+        check("Open tasks:" in text and "t3  Ship" in text and "task set notes <id> --state done" in text,
+              "check names each open task and the command that marks one done")
         run("task", "set", "notes", "t3", "--state", "done", "--evidence", "tagged v1.0")
         s = js("check", "notes", expect=1)
         check(not s["achieved"] and s["done_checks"][0]["result"] == "fail", "a failing proof keeps it from being achieved")

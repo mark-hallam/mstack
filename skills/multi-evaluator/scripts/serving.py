@@ -1,4 +1,5 @@
 """Serve the product for reviewers and run shared headless Chrome for sandboxed commands."""
+import json
 import os
 import shutil
 import signal
@@ -24,7 +25,7 @@ def cmd_serve(args):
     if hasattr(signal, "SIGHUP"):
         signal.signal(signal.SIGHUP, stop)
     t.start()
-    print("ready: %s" % t.url, flush=True)
+    print(json.dumps({"ok": True, "url": t.url}) if getattr(args, "json", False) else "ready: %s" % t.url, flush=True)
     try:
         while t.proc is None or t.proc.poll() is None:
             time.sleep(1)

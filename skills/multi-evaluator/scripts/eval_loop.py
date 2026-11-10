@@ -46,10 +46,12 @@ import audit  # noqa: E402  (the measured audit that capture saves for every vie
 from eval_common import (  # noqa: E402
     CONFIG_NAME,
     SKILL,
+    JsonParser,
     fill,
     port_free,
     product_build,
     round_build,
+    run_cli,
     tmp_base,
 )
 from serving import cmd_serve, find_chrome, shared_chrome  # noqa: E402
@@ -433,7 +435,7 @@ def cmd_notify(args):
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = JsonParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="command", required=True)
 
     def add(name, fn, round_=True, json_=True):
@@ -459,7 +461,7 @@ def main(argv=None):
     s.add_argument("--only", help="comma separated view ids")
     s = add("brief", cmd_brief)
     s.add_argument("--cdp-port", type=int, default=9555, help="the shared Chrome port for sandboxed reviewers")
-    s = add("serve", cmd_serve, round_=False, json_=False)
+    s = add("serve", cmd_serve, round_=False)
     s.add_argument("--port", type=int, help="the port to serve on (default: any free port)")
     s = add("review", cmd_review)
     s.add_argument("--only", help="comma separated reviewer ids")
@@ -474,8 +476,7 @@ def main(argv=None):
     s.add_argument("--no-notify", action="store_true")
     s = add("notify", cmd_notify, round_=False)
     s.add_argument("message", nargs="?", default="mStack: test notification")
-    args = ap.parse_args(argv)
-    args.fn(args)
+    run_cli(ap, argv)
 
 
 if __name__ == "__main__":

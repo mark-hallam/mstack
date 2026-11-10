@@ -26,8 +26,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
-      - name: Leak and style scan
+      - name: Safety scan (leaks)
         run: python3 tests/leak_scan.py
+      - name: Style check
+        run: python3 tests/style_scan.py
       - name: Every test (packaging, mstack, outcome-first, away-mode, multi-evaluator)
         env:
           MSTACK_CHROME_ARGS: ${{ runner.os == 'Linux' && '--no-sandbox' || '' }}
