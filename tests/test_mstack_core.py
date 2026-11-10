@@ -138,7 +138,8 @@ def main():
         set_config(ping={"ntfy_topic": "", "ntfy_server": "https://ntfy.sh"})
         n = len(pings())
         code, out, err = go("ping", "hook", stdin=stop, tool=os.path.join(mhome, "bin", "mstack.py"))
-        check(code == 0 and len(pings()) == n + 1, "the copy in the mStack home runs the hook by itself")
+        check(code == 0 and len(pings()) == n + 1, "the launcher in the mStack home runs the hook by itself")
+        check(os.listdir(os.path.join(mhome, "bin")) == ["mstack.py"], "the mStack home's bin folder holds only the launcher")
         run("setup", "claude-hooks", "--settings", settings, "--write", "--remove")
         check(not os.path.exists(settings), "claude-hooks --remove deletes a settings file mStack created")
 
