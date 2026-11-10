@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Leak and style scan for every file in this repository. Run before every commit.
+"""Safety scan for every file in this repository. Run before every commit.
 
-Fails on: home folder paths, email addresses, things that look like secret tokens, private workspace
-names, dashes used as punctuation, and hype words. Embedded images inside HTML reports are skipped.
+Fails on: home folder paths, email addresses, things that look like secret tokens, private keys, and private
+workspace names. The house writing style (dashes, hype words) is checked apart, by tests/style_scan.py.
+Embedded images inside HTML reports are skipped. MSTACK_SCAN_ROOT scans another folder.
 
   python3 tests/leak_scan.py
 """
@@ -10,7 +11,7 @@ import os
 import re
 import sys
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ROOT = os.environ.get("MSTACK_SCAN_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SKIP_DIRS = {".git", "__pycache__", "node_modules"}
 TEXT = {".md", ".py", ".mjs", ".js", ".json", ".html", ".txt", ".yml", ".yaml", ".toml", ".sh", ""}
 
@@ -23,10 +24,6 @@ CHECKS = [
     ("a GitHub token", re.compile(r"\b(gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,})")),
     ("an API key", re.compile(r"\b(sk-[A-Za-z0-9_-]{20,}|AKIA[0-9A-Z]{16}|xox[abpr]-[A-Za-z0-9-]{10,})")),
     ("a private key", re.compile("-----BEGIN [A-Z ]*PRIV" + "ATE KEY-----")),
-    ("an em or en dash", re.compile("[\\u2014\\u2013]")),
-    # "trans" + "form" as a verb; the CSS property text-transform is fine.
-    ("a hype word", re.compile(r"\b(revolutio" + r"ni[sz]e\w*|(?<!text-)trans" + r"form(s|ed|ing)?\b|game.chan" + r"ger|"
-                               r"next.gener" + r"ation|ai.pow" + r"ered)", re.I)),
 ]
 ALLOWED = set()   # (file, matched text) pairs that are fine, if a real exception ever comes up
 

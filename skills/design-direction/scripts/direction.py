@@ -21,7 +21,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from direction_build import start_round  # noqa: E402
-from direction_common import CONFIG_NAME, SKILL, Project, fail, label, read, say, write  # noqa: E402
+from direction_common import CONFIG_NAME, SKILL, JsonParser, Project, fail, label, read, run_cli, say, write  # noqa: E402
 from direction_compare import cmd_compare  # noqa: E402
 from direction_lock import cmd_lock  # noqa: E402
 from direction_shots import cmd_shots  # noqa: E402
@@ -33,7 +33,7 @@ def cmd_init(args):
         fail("%s already exists in %s." % (CONFIG_NAME, folder))
     cfg = json.loads(read(os.path.join(SKILL, "templates", "direction.json")))
     cfg["name"], cfg["taste"] = args.name, args.taste or ""
-    taste = args.taste or "[[One line: the feel the person wants, for example \"Apple-clean, familiar, calm, light first\".]]"
+    taste = args.taste or "[[One line: the feel the person wants, for example \"clean, familiar, calm, light first\".]]"
     brief = read(os.path.join(SKILL, "templates", "BRIEF.md")).replace("{name}", args.name).replace("{taste}", taste)
     write(os.path.join(folder, CONFIG_NAME), json.dumps(cfg, indent=2) + "\n")
     write(os.path.join(folder, cfg["brief"]), brief)
@@ -99,7 +99,7 @@ def cmd_status(args):
 
 
 def main():
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = JsonParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="command", required=True)
 
     def add(name, fn, **kw):
@@ -110,7 +110,7 @@ def main():
         return s
     s = add("init", cmd_init, help="write direction.json and BRIEF.md")
     s.add_argument("--name", required=True)
-    s.add_argument("--taste", help="one line, for example \"Apple-clean, familiar, calm, light first\"")
+    s.add_argument("--taste", help="one line, for example \"clean, familiar, calm, light first\"")
     s = add("options", lambda a: start_round(a, "options", a.n), help="start a round of directions")
     s.add_argument("--n", type=int, default=3)
     s.add_argument("--round", type=int)
@@ -129,8 +129,7 @@ def main():
     s.add_argument("--round", type=int)
     add("lock", cmd_lock, help="write brand.json")
     add("status", cmd_status, help="where it is and what to do next")
-    args = ap.parse_args()
-    args.fn(args)
+    run_cli(ap)
 
 
 if __name__ == "__main__":

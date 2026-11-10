@@ -104,20 +104,32 @@ a one point move looks like progress.
 
 ### Cursor's command line agent (`kind: "command"`)
 
+The starter file has this entry, switched off. Set `"enabled": true` to use it.
+
 ```json
-{"id": "grok", "name": "Grok", "maker": "xAI", "model": "grok-4.7-medium", "colour": "#555",
- "kind": "command", "enabled": true, "shared_chrome": true, "timeout_minutes": 60,
- "command": ["{home}/.local/bin/cursor-agent", "-p", "--trust", "-f", "--model", "grok-4.7-medium",
-             "--output-format", "text", "--workspace", "{work}"]}
+{"id": "cursor", "name": "Cursor agent", "model": "", "colour": "#555",
+ "kind": "command", "enabled": false, "shared_chrome": true, "timeout_minutes": 60,
+ "command": ["cursor-agent", "-p", "--trust", "-f", "--output-format", "text", "--workspace", "{work}"]}
 ```
 
-The brief arrives on standard input. `-p` with `-f` switches its shell on so it can drive the product in a real
-browser; `--mode ask` refuses tools, so it cannot drive the product. Point `--workspace` at `{work}` (the
-reviewer's own folder), never the product folder: the brief's rule "never change the product's own files" is
-the only guard. Usage comes from the person's Cursor plan; no API key.
+The brief arrives on standard input. What each part of the command does, so you know what you allow:
 
-The same shape with a Claude model name (see `cursor-agent --list-models`) and `"maker": "Anthropic"` runs Claude
-through Cursor: `maker` is the model's maker, not the tool's. Only use models the person's plan includes.
+- `cursor-agent`: the program name, found on your `PATH`. If it is installed somewhere else, put its full path
+  here. When it cannot be found, `review` says which program is missing and points back to this setting.
+- `-p`: print mode. It runs once without a chat window, reads the brief, and prints its reply.
+- `--trust`: trusts the working folder without asking, so it does not stop at a prompt nobody is there to answer.
+- `-f`: lets it run shell commands without asking each time. The reviewer needs this to drive the product in a
+  real browser. It means the agent can run any command in that session, so use it only with a folder and a
+  product you are happy for it to work in. `--mode ask` refuses tools, so it cannot drive the product.
+- `--output-format text`: prints the reply as plain text, which is what the loop reads.
+- `--workspace {work}`: the reviewer's own folder for this round. Never point it at the product folder: the
+  brief's rule "never change the product's own files" is the only guard.
+
+The model: an empty `model` means the program uses its own default. To pick one, add `"--model", "<name>"` to
+`command` (list the names with `cursor-agent --list-models`) and put the same name in `model` and its maker in
+`maker`, so the report shows which model ran. `maker` is the model's maker, not the tool's. Only use models the
+person's Cursor plan includes. Usage comes from that plan; no API key. An older config may
+still call the entry `cursor-grok` with a fixed path and model: it keeps working as it is.
 
 Other command reviewers work the same way, for example Claude Code without the agent:
 `["claude", "-p", "--allowedTools", "Bash,Read,Write"]`, or any agent with a non-interactive mode.

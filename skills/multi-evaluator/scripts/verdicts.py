@@ -2,6 +2,8 @@
 import json
 import os
 import re
+import shlex
+import shutil
 import subprocess
 import sys
 import time
@@ -122,6 +124,17 @@ def save_verdict(p, n, rid, v):
     return path
 
 
+def missing_program(cmd):
+    """The program a command starts with when it cannot be found (on PATH, or at the path given), else None."""
+    if isinstance(cmd, str) and re.search(r"[&|;<>$`()=]", cmd):
+        return None                                  # a shell line: the shell reports what it cannot find
+    try:
+        first = (cmd if isinstance(cmd, list) else shlex.split(cmd))[0]
+    except (IndexError, ValueError):
+        return "(empty command)"
+    return None if shutil.which(first) else first
+
+
 def run_reviewer(p, n, r, cdp_port, results):
     rid = r["id"]
     work = p.rdir(n, "work", rid)
@@ -135,6 +148,12 @@ def run_reviewer(p, n, r, cdp_port, results):
     home = os.path.expanduser("~")
     values = {"work": work, "reply": reply, "brief": brief, "dir": p.dir, "round": n, "skill": SKILL, "home": home}
     cmd = fill(r["command"], values)
+    gone = missing_program(cmd)
+    if gone:
+        results[rid] = {"ok": False, "problem": "the program %s was not found, so reviewer %s cannot run. Install it, or set "
+                                                "\"command\" for this reviewer in %s to the program's full path (see "
+                                                "references/config.md)." % (gone, rid, "mstack-eval.json")}
+        return
     env = dict(os.environ)
     if cdp_port:
         env["MSTACK_CDP_PORT"] = str(cdp_port)
