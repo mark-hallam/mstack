@@ -41,8 +41,11 @@ drive it. Python 3.9 or later, standard library only.
    design and architecture), an estimate, the files it needs, and whether it can run without the person.
    `CREW add <project> "<title>"` queues a job by hand; `--with-person` marks one the person must be in.
 3. `CREW install --dry-run` shows exactly what the background job would be (a launchd agent on macOS, a
-   crontab line on Linux with systemd timer units shown, the Task Scheduler command on Windows) and writes
-   nothing. Show it to the person; with their yes, `CREW install`. `CREW uninstall` removes it.
+   crontab line on Linux with systemd timer units shown, the Task Scheduler command on Windows), with the
+   label and file it would use, and writes nothing. Show it to the person; with their yes, `CREW install`.
+   `CREW uninstall` removes it. The default home (`~/.mstack`) uses the label `com.mstack.crew`; any other
+   home (`MSTACK_HOME`) gets `com.mstack.crew.<8 characters from its path>`, so two homes never share or
+   overwrite one file, and `status` reports installed only when this home's own file exists.
 
 ## 2. What the tick does, every 15 minutes
 
@@ -63,7 +66,8 @@ drive it. Python 3.9 or later, standard library only.
    or when another job is running on the same project or the same files.
 5. Runs it: a short brief with only that job's files, the cheapest runner and model that fit, a side branch
    in its own worktree, the Mac kept awake only for the run (`caffeinate`, no setting changed), the hard
-   rules in the brief. The runner ends with one JSON block: done with evidence, a question with a default,
+   rules in the brief. The agent may run only the project's exact check commands (never a whole program),
+   and the crew runs every done check itself when the agent stops. The runner ends with one JSON block: done with evidence, a question with a default,
    or blocked. A failed check, a missing block, or a non zero exit may be tried again automatically (up to
    three times, never for a question), then the job is parked for the person. Tokens and the
    window after the run are recorded on the job.
@@ -81,6 +85,12 @@ usage against the cap per window, and the north star: outcomes finished without 
 finished outcome. The tick renders a PDF and a phone-width PNG through away-mode and pings through ping-me.
 When the person is at the computer, show the HTML; when away or unsure, send the PNG and PDF into the chat
 with the key points in the reply (away-mode's rules).
+
+Each job leaves a `crew/<job id>` side branch only when it made commits; one with no commits is removed
+when the job ends. `CREW branches [--project ID] [--json]` lists every crew branch per project (its job and
+status, commits ahead, merged or not). `CREW branches --prune` deletes only the merged or empty ones that
+are not checked out in a worktree and not a running job's; a branch with unmerged work is listed with the
+commands to merge or delete it. The digest has one line when unmerged crew branches exist.
 
 Questions are answered with `CREW answer <job-id or key> "<answer>"`; the job goes back in the queue with
 the answer in its brief. A blocked job: `CREW retry <job-id>` (once more) or `CREW drop <job-id>`.

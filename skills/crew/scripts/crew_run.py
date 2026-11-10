@@ -11,6 +11,8 @@ import re
 import subprocess
 import sys
 
+import crew_branches as branches
+import crew_perms as perms
 import crew_store as st
 import crew_usage as usage
 
@@ -135,13 +137,19 @@ def build_prompt(cfg, p, job, workdir, branch):
     all_cmds = done and all(d.partition("::")[2].strip() for d in done)
     if job.get("tier") == "small" and not files and all_cmds:
         lines += ["", "Do exactly this:"]
+        allowed = perms.agent_commands(p, job)
         for d in done:
             _, _, cmd = d.partition("::")
-            lines.append("- Run exactly: `%s` from the project folder. Report its last lines and whether it passed. "
-                           "Read no files unless the command's output names one you must look at." % cmd.strip())
+            if cmd.strip() in allowed:
+                lines.append("- Run exactly: `%s` from the project folder. Report its last lines and whether it passed. "
+                             "Read no files unless the command's output names one you must look at." % cmd.strip())
+            else:
+                lines.append("- `%s` is a check the crew runs itself when you finish. Report that nothing more is needed "
+                             "from you for it." % cmd.strip())
     else:
         lines += ["", "Files for this job (start here, read nothing else unless these point to it):"]
         lines += ["- %s" % f for f in files] or ["- none named: find the few files the outcome needs, then stop looking"]
+    lines += perms.prompt_lines(p, job)
     if job.get("context"):
         lines += ["", "Context:", job["context"]]
     if p.get("notes"):
@@ -167,12 +175,10 @@ def build_prompt(cfg, p, job, workdir, branch):
     return "\n".join(lines)
 
 
-def allowed_tools(p):
+def allowed_tools(p, job=None):
     tools = ["Read", "Edit", "Write", "MultiEdit", "Grep", "Glob", "Bash(git add:*)", "Bash(git commit:*)",
              "Bash(git status:*)", "Bash(git diff:*)", "Bash(git log:*)"]
-    for cmd in [p.get("test")] + [d.partition("::")[2] for d in p.get("done", [])]:
-        if cmd:
-            tools.append("Bash(%s:*)" % cmd.split()[0])
+    tools += perms.tool_rules(p, job)                 # the exact check commands only, never a whole program
     tools += list(p.get("allowed_tools") or [])
     return tools
 
@@ -182,7 +188,7 @@ def runner_command(cfg, runner, p, job, workdir, prompt):
     cmd = list(r.get("command") or [runner])
     model = tier_model(cfg, runner, job["tier"])
     if runner == "claude":
-        cmd += [prompt, "--output-format", "stream-json", "--verbose", "--allowedTools"] + allowed_tools(p)
+        cmd += [prompt, "--output-format", "stream-json", "--verbose", "--allowedTools"] + allowed_tools(p, job)
         if model:
             cmd += ["--model", model]
     else:
@@ -294,7 +300,7 @@ def finish_workspace(p, workdir, branch, keep_branch):
     if not branch:
         return
     st.git(p["path"], "worktree", "remove", "--force", workdir)
-    if not keep_branch:
+    if not keep_branch and not branches.has_own_commits(p, branch):
         st.git(p["path"], "branch", "-D", branch)
 
 

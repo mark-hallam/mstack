@@ -10,6 +10,7 @@ import os
 import subprocess
 import sys
 
+import crew_branches as branches
 import crew_store as st
 import crew_usage as usage
 
@@ -55,7 +56,7 @@ def gather(cfg, q, hours=24):
     all_done = [j for j in jobs if j["state"] == "done"]
     all_tokens = sum(int(j.get("usage", {}).get("total_tokens", 0)) for j in all_done)
     return {"date": st.now().date().isoformat(), "finished": finished, "waiting": waiting, "stuck": stuck, "todo": todo,
-            "tokens": tokens, "budgets": budgets,
+            "tokens": tokens, "budgets": budgets, "branches": branches.unmerged_count(cfg, q, st.load_state()),
             "north_star": {"outcomes_without_the_person": len(all_done),
                            "tokens_per_outcome": int(all_tokens / len(all_done)) if all_done else 0}}
 
@@ -75,6 +76,13 @@ def usage_html(budgets):
                            esc(name), esc(w["window"].replace("_", " ")), w["percent"], b["cap"], esc(w.get("resets") or "?"), cls,
                            min(100, int(w["percent"])), esc(r.get("how", "")), esc(r.get("at", "")[:16])))
     return "".join(out)
+
+
+def branch_line(n):
+    if not n:
+        return ""
+    return "<p class='sub'>%d unmerged crew branch%s. <code>crew.py branches</code> lists %s.</p>" % (
+        n, "" if n == 1 else "es", "it" if n == 1 else "them")
 
 
 def build_html(d):
@@ -112,10 +120,10 @@ def build_html(d):
             "<h2>Finished, with evidence</h2><div class='card'>%s</div>"
             "<h2>Waiting for you</h2><div class='card'>%s</div>"
             "<h2>Usage against the cap</h2><div class='card'>%s</div>"
-            "<h2>Still queued</h2><div class='card'><p class='sub'>%d jobs queued. <code>crew.py list</code> shows them.</p></div>"
+            "<h2>Still queued</h2><div class='card'><p class='sub'>%d jobs queued. <code>crew.py list</code> shows them.</p>%s</div>"
             "</main></body></html>") % (
         esc(d["date"]), CSS, esc(d["date"]), esc("python3 %s status --render" % STATUS_TOOL), len(d["finished"]), len(d["waiting"]) + len(d["stuck"]), format(d["tokens"], ","),
-        ns["outcomes_without_the_person"], format(ns["tokens_per_outcome"], ","), finished, waiting, usage_html(d["budgets"]), len(d["todo"]))
+        ns["outcomes_without_the_person"], format(ns["tokens_per_outcome"], ","), finished, waiting, usage_html(d["budgets"]), len(d["todo"]), branch_line(d.get("branches", 0)))
     return page
 
 

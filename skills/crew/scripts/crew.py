@@ -13,6 +13,8 @@ command prints JSON with --json (status, next, usage and list print JSON by defa
   next                                 the job that would run now, and why others would not
   run [<job-id>] [--dry-run]           run one job now (the next eligible one by default)
   tick [--max N]                       what the background job calls: scan, budget, run, digest when due
+  branches [--project ID] [--prune]    list the crew/* side branches (job, status, commits ahead, merged); --prune
+                                       deletes only the merged or empty ones, never one with unmerged work
   status                               where crew stands: switches, usage, queue, questions, the next step
   usage [--probe]                      each runner's windows, measured; --probe allows a one word read
   digest [--no-send]                   the morning digest now (HTML, PDF, phone PNG, ping)
@@ -36,6 +38,7 @@ _LOCKS = os.path.join(_SKILLS, "mstack", "scripts")
 if _LOCKS not in sys.path:
     sys.path.insert(0, _LOCKS)
 import locks  # noqa: E402
+import crew_branches as branches  # noqa: E402
 import crew_digest as digest   # noqa: E402
 import crew_install as inst    # noqa: E402
 import crew_run as runner      # noqa: E402
@@ -293,6 +296,18 @@ def next_step(d):
     return "nothing can run now; the reasons are under waiting"
 
 
+def cmd_branches(args):
+    cfg, q, state = st.load_config(), st.load_queue(), st.load_state()
+    if args.project and args.project not in [p["id"] for p in cfg["projects"]]:
+        msg = "No crew project %r. The projects are: %s" % (args.project, ", ".join(p["id"] for p in cfg["projects"]) or "none")
+        if args.json:
+            print(json.dumps({"ok": False, "error": msg}))
+            sys.exit(1)
+        raise SystemExit(msg)
+    res = branches.report(cfg, q, state, project=args.project, prune=args.prune)
+    out(args, res, branches.render_text(res))
+
+
 def cmd_usage(args):
     cfg, q = st.load_config(), st.load_queue()
     print(json.dumps(budgets_for(cfg, q, allow_probe=args.probe), indent=2, ensure_ascii=False))
@@ -364,6 +379,7 @@ def cmd_install(args):
         return
     print("%s on %s, every %d minutes. The tick honours: %s" % ("DRY RUN: would install" if r["dry_run"] else "Installed",
                                                                  r["platform"], r["every_minutes"], ", ".join(r["honours"])))
+    print("home: %s, label: %s%s" % (r["home"], r["label"], (", file: " + r["path"]) if r.get("path") else ""))
     for w in r["writes"]:
         print("\n--- %s %s\n%s" % ("would write" if r["dry_run"] else "wrote", w["path"], w["content"].rstrip()))
     for cmd in r["runs"]:
@@ -376,7 +392,7 @@ def cmd_install(args):
 
 def cmd_uninstall(args):
     r = inst.uninstall(args.dry_run)
-    out(args, r, "%s: %s" % ("would remove" if args.dry_run else "removed", ", ".join(r["removes"])))
+    out(args, r, "%s: %s (label %s)" % ("would remove" if args.dry_run else "removed", ", ".join(r["removes"]), r["label"]))
 
 
 def main(argv=None):
@@ -401,6 +417,7 @@ def main(argv=None):
     s = cmd("run", cmd_run); s.add_argument("job", nargs="?"); s.add_argument("--dry-run", action="store_true"); s.add_argument("--force", action="store_true")
     s = cmd("tick", cmd_tick); s.add_argument("--max", type=int, default=1)
     cmd("status", cmd_status)
+    s = cmd("branches", cmd_branches); s.add_argument("--project"); s.add_argument("--prune", action="store_true")
     s = cmd("usage", cmd_usage); s.add_argument("--probe", action="store_true")
     s = cmd("digest", cmd_digest); s.add_argument("--no-send", action="store_true")
     s = cmd("answer", cmd_answer); s.add_argument("id"); s.add_argument("answer")
