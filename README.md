@@ -25,12 +25,14 @@ Cursor did the same with Grok from a single rules block. Details and dates in [d
 
 ## Install in 30 seconds
 
-**Claude Code**, as a plugin (updates itself):
+**Claude Code**, as a plugin:
 
 ```
 /plugin marketplace add mark-hallam/mstack
 /plugin install mstack@mstack
 ```
+
+To update later: `claude plugin marketplace update mstack`, then `claude plugin update mstack@mstack`.
 
 **Codex**: clone this repository, then ask Codex to run
 `python3 skills/mstack/scripts/mstack.py setup codex`. It shows what it would add to `~/.codex/AGENTS.md`
@@ -136,8 +138,10 @@ and puts the 3 to 5 key points in the message itself. Never just a path.
 
 Only measured ones, each with its date and source in [docs/evidence.md](docs/evidence.md):
 
-- **6 of 6** plain phrases routed to the right skill on a clean install of 0.4.1, and **8 of 8** on 0.6.0 with two
-  phrases for the new skill (both 7 November 2026).
+<!-- evidence:routing:start -->
+- **10 of 10** plain phrases reached the right skill on a clean install of 0.7.1 (10 November 2026). Every release
+  reruns them before it ships.
+<!-- evidence:routing:end -->
 - **3 of 3** AI makers (Anthropic, OpenAI, xAI), reviewing blind in a real browser, found the same bug in
   one review round of a real app. Their overall scores still differed by up to 2.7 points, which is why the
   loop needs them to agree before it says ready.
@@ -178,7 +182,7 @@ person does.
 python3 tests/run_all.py
 ```
 
-This runs the leak and style scan, the packaging checks, and each skill's self-test: switches, pings (to a
+It takes about seven minutes, most of it the review rounds in a real browser. This runs the leak and style scan, the packaging checks, and each skill's self-test: switches, pings (to a
 stand-in, never your real desktop), the private journal and reviews, the setup for each agent (on temporary
 copies of the settings files), the outcome plan with a stand-in crontab, away detection with stand-in
 machine signals plus a real render when Chrome is present, the crew queue with a stand-in runner on a

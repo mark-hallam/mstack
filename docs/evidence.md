@@ -4,7 +4,22 @@ Every number mStack's README gives is measured, dated, and traceable to a file. 
 private data (review folders of a real product, logs with folder paths) stay on the author's computer;
 what is public is the method and the result. Where a number is not public, this page says so.
 
-## 7 November 2026: a clean install, on a Mac that had never seen mStack
+## Every release: a clean install, then plain phrases
+
+From 0.7.1 on, each release is installed into an empty Claude Code profile with an empty mStack home, so
+none of the author's own rules or memory can help. Ten plain phrases a stranger might type are then asked,
+each in its own fresh session, and the skill each one reached is recorded. `tests/release_check.py` does the
+run and writes this table from [docs/evidence/routing.json](evidence/routing.json), which holds every run
+phrase by phrase. The phrases, and the skills counted as right for each, are in
+`tests/release_phrases.json`. The test suite fails when the current version has no run recorded.
+
+<!-- evidence:routing:start -->
+| Release | Date | Installed from | Agent | Phrases that reached the right skill |
+|---|---|---|---|---|
+| 0.7.1 | 10 November 2026 | GitHub (mark-hallam/mstack) | Claude Code (sonnet) | **10 of 10** |
+<!-- evidence:routing:end -->
+
+## 7 November 2026: a clean install, in an empty profile
 
 - A separate, empty Claude Code profile and an empty mStack home were used, so none of the author's own
   rules or memory could help.

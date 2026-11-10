@@ -1,0 +1,15 @@
+{
+  "ask": "Before doing anything else: which installed skill would you use for this, and why? Reply with the skill name and one sentence, then stop. Do not do the task.",
+  "phrases": [
+    {"id": "p1", "phrase": "I'm heading out for a couple of hours. Run the test suite and let me know how it went.", "expected": ["outcome-first", "ping-me"]},
+    {"id": "p2", "phrase": "Keep improving the design of my landing page until it's ready to show real customers.", "expected": ["multi-evaluator"]},
+    {"id": "p3", "phrase": "I'm on my phone now. Show me the report you made.", "expected": ["away-mode"]},
+    {"id": "p4", "phrase": "Big job: move my blog from WordPress to a static site. Handle the whole thing and don't keep asking me questions one at a time.", "expected": ["outcome-first"]},
+    {"id": "p5", "phrase": "Can you keep working through my projects in the background while I'm not around, without me having to be in every job?", "expected": ["crew"]},
+    {"id": "p6", "phrase": "What skills do I have installed and when do they switch on?", "expected": ["mstack"]},
+    {"id": "p7", "phrase": "I'm starting a new app and have no idea what it should look like yet. Show me a few directions so I can pick one.", "expected": ["design-direction"]},
+    {"id": "p8", "phrase": "Keep the look we already have, but try two or three different layouts for the home screen and let me choose.", "expected": ["design-direction"]},
+    {"id": "p9", "phrase": "What is happening across all my projects right now, what is waiting on me?", "expected": ["mstack"]},
+    {"id": "p10", "phrase": "I need to start a tester on the staging site, write its brief for me", "expected": ["mstack"]}
+  ]
+}

@@ -1,0 +1,96 @@
+{
+  "results": [
+    {
+      "version": "0.7.1",
+      "date": "2026-11-10",
+      "source": "GitHub (mark-hallam/mstack)",
+      "agent": "Claude Code",
+      "model": "sonnet",
+      "right": 10,
+      "total": 10,
+      "rows": [
+        {
+          "id": "p1",
+          "expected": [
+            "outcome-first",
+            "ping-me"
+          ],
+          "picked": "outcome-first",
+          "right": true
+        },
+        {
+          "id": "p2",
+          "expected": [
+            "multi-evaluator"
+          ],
+          "picked": "multi-evaluator",
+          "right": true
+        },
+        {
+          "id": "p3",
+          "expected": [
+            "away-mode"
+          ],
+          "picked": "away-mode",
+          "right": true
+        },
+        {
+          "id": "p4",
+          "expected": [
+            "outcome-first"
+          ],
+          "picked": "outcome-first",
+          "right": true
+        },
+        {
+          "id": "p5",
+          "expected": [
+            "crew"
+          ],
+          "picked": "crew",
+          "right": true
+        },
+        {
+          "id": "p6",
+          "expected": [
+            "mstack"
+          ],
+          "picked": "mstack",
+          "right": true
+        },
+        {
+          "id": "p7",
+          "expected": [
+            "design-direction"
+          ],
+          "picked": "design-direction",
+          "right": true
+        },
+        {
+          "id": "p8",
+          "expected": [
+            "design-direction"
+          ],
+          "picked": "design-direction",
+          "right": true
+        },
+        {
+          "id": "p9",
+          "expected": [
+            "mstack"
+          ],
+          "picked": "mstack",
+          "right": true
+        },
+        {
+          "id": "p10",
+          "expected": [
+            "mstack"
+          ],
+          "picked": "mstack",
+          "right": true
+        }
+      ]
+    }
+  ]
+}
