@@ -374,11 +374,12 @@ def main():
         check(sorted(os.listdir(agents)) == before and not os.path.exists(os.path.join(home, "crew", "tick.log")), "the dry run writes nothing")
         if sys.platform == "darwin":
             r = js("install", "--every", "20")
-            check(os.path.exists(os.path.join(agents, "com.mstack.crew.plist")) and "StartInterval" in open(os.path.join(agents, "com.mstack.crew.plist")).read(),
+            plist = os.path.join(agents, r["label"] + ".plist")      # this home is not the default, so its label carries a tag
+            check(r["label"].startswith("com.mstack.crew.") and os.path.exists(plist) and "StartInterval" in open(plist).read(),
                   "install writes the launchd agent into the (stand-in) LaunchAgents folder")
             check(js("status")["installed"] is True, "status knows it is installed")
             js("uninstall")
-            check(not os.path.exists(os.path.join(agents, "com.mstack.crew.plist")), "uninstall removes it")
+            check(not os.path.exists(plist), "uninstall removes it")
         s = js("status")
         check(isinstance(s["next_step"], str) and s["jobs"]["done"] >= 2, "status says where crew stands and what to do next")
         # bounded retries before a job is parked

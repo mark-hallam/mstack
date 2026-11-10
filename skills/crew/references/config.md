@@ -33,7 +33,8 @@ folders and is never inside a repository. `crew.py init` writes the starter in `
 
 - `command`: the program and its fixed arguments. Crew adds the brief, the output format, the model for the
   job's tier, and for Claude an allowed tools list built from the project (read, edit, search, `git add`,
-  `git commit`, `git status`, `git diff`, `git log`, and the first word of the test command); for Codex the
+  `git commit`, `git status`, `git diff`, `git log`, and the exact test and done check commands, each only
+  as written and never when it chains or redirects with a shell operator); for Codex the
   `workspace-write` sandbox and the worktree as `-C`.
 - `models`: the model per tier. An empty map means the runner's own default for every tier (Codex on a
   ChatGPT plan may refuse smaller models; leave it empty unless the person has checked).
@@ -59,7 +60,7 @@ folders and is never inside a repository. `crew.py init` writes the starter in `
 | `allow_push` | Off by default. When true, and only for `github` projects, crew may push the `crew/` side branch after the repository's leak scan passes (`leak_scan` names the command, default `python3 tests/leak_scan.py` when that file exists). It never pushes anything else. |
 | `test` | The test command, run from the project's root. It becomes a done check on every job from this project. |
 | `notes` | One or two lines every brief carries (style rules, what never to touch). |
-| `allowed_tools` | Extra Claude Code tool patterns, for example `"Bash(npm test:*)"`. |
+| `allowed_tools` | Extra Claude Code tool patterns the person chooses, for example `"Bash(npm test:*)"`. Kept exactly as written. |
 | `sources` | Where the work comes from, below. |
 
 ## Sources
