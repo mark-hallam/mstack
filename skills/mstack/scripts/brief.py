@@ -93,7 +93,7 @@ def make_worktree(project, slug):
 def compose(args, project, rules_paths, reads, persona_line, target_lines, worktree, branch):
     name = os.path.basename(project.rstrip(os.sep)) or "project"
     out = ["# %s: %s" % (args.kind.capitalize(), args.goal), "",
-           "You are the %s for %s." % (args.kind, name), "", "## Read these first", ""]
+           "You are the %s for %s." % (kinds.ROLE[args.kind], name), "", "## Read these first", ""]
     out += ["- " + f for f in reads] or ["- (no HANDOFF.md or README.md in %s)" % project]
     out += ["", "Read nothing else unless these point to it.", "", "## Rules", ""]
     block = rules_file.block(project)
@@ -171,8 +171,8 @@ def start(args, brief_path, text, home):
 
 # ---------------------------------------------------------------- main
 
-def main(argv=None):
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+def main(argv=None, prog=None):
+    ap = argparse.ArgumentParser(prog=prog, description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("kind", choices=kinds.KINDS)
     ap.add_argument("goal", help="the goal, in one line")
     ap.add_argument("--project", help="the project folder (default: here)")

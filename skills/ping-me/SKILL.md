@@ -34,7 +34,8 @@ Not for routine progress, and not when they are clearly at the screen answering 
 
 One line, under 200 characters, leading with what they would act on:
 "Need your OK to publish the site: 2 options in the chat" or "Done: report ready, every journey 10/10".
-Never put passwords, tokens or private details in a notification.
+Never put passwords, tokens or private details in a notification. The same goes for the agent's reply text: the
+hooks below never include it by default (see "What a hook notification says").
 
 ## How to send it, and what honestly reaches a phone
 
@@ -53,8 +54,8 @@ Use the best channel your agent has, in this order, and be plain about which one
    the portable tool, Codex included, also reaches the phone. It is off by default because it sends the
    text to a third party. Guided opt-in: `mstack.py setup ntfy` shows the topic it would create, the app
    to install and the line it would write to `~/.mstack/config.json`; after the person says yes, run it
-   again with `--write` and it sends a test ping. `--remove` turns it off again. Only suggest it; never
-   turn it on without the yes.
+   again with `--write` and it sends a test ping. `--remove` turns it off again. The server must be `https://`
+   (plain `http://` only for localhost, 127.0.0.1 or [::1]). Only suggest it; never turn it on without the yes.
 
 So: phone in Claude Code while Remote Control is on; phone anywhere once ntfy is set up; otherwise a
 desktop alert, and the reply says which.
@@ -69,11 +70,27 @@ change, ask the person, and only then add `--write`:
   desktop notification. `--remove` takes them out. If the desktop app already notifies the person, these
   can double up: ask which they prefer.
 - **Codex**: `mstack.py setup codex` adds a `notify` program to `~/.codex/config.toml`, which Codex runs
-  when a turn completes. It never replaces a `notify` setting the person already has.
+  when a turn completes. A `notify` program the person already has keeps running: mStack pings first, then
+  theirs runs with the same event, and `setup codex --remove` puts their line back exactly.
 - **Cursor and others**: `mstack.py setup cursor --project <folder>` adds the rule as an always-applied
   project rule.
 
-`mstack.py ping test` sends a test notification.
+Each of these takes `--remove` (preview first, then `--write`) to undo exactly what it added. When the settings
+file is a symbolic link, the preview names the real file that would change.
+
+## What a hook notification says
+
+The reply text is private by default. A Claude Code `Stop` hook or a Codex `notify` event sends
+"Turn finished in <project folder>", and the `Notification` hook sends "Waiting for you in <project folder>". None
+of the agent's words, and none of the person's messages, leave the computer, and that includes ntfy, a third
+party server.
+
+To bring the reply back, the person sets `"notify_reply_text": true` in `~/.mstack/config.json`; the hooks then
+send the first 160 characters of the reply. With ntfy on, that text is sent to the ntfy server, and `setup ntfy`
+and `ping test` say so plainly. Every `setup` preview states what text a notification will contain and where it
+goes. An explicit `mstack.py ping "<message>"` always sends the message it is given.
+
+`mstack.py ping test` sends a test notification. All of these commands take `--json`.
 
 ## After
 

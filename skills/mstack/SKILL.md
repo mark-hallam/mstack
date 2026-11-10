@@ -33,6 +33,10 @@ The shared tool is `scripts/mstack.py` (next to this file). Below, `MSTACK` mean
 - For one task: if the person says "don't use <skill>" (or "no pings", "just do it", and so on), do not use
   it for that task. No file changes.
 - Every mStack skill checks the config before it starts. `MSTACK enabled <skill>` exits 0 when it is on.
+- Skill names are checked: `log`, `learn`, `learned`, `unlearn`, `enabled`, `disable` and `enable` accept only the
+  names `MSTACK skills` lists. Any other name exits 2 with the valid names and writes nothing.
+- Every `MSTACK` command takes `--json` and then prints one JSON object; an error is `{"ok": false, "error": "..."}`
+  with a non-zero exit.
 
 **The off switch is that one file and nothing else.** Switching a skill off, for good or for a task, never
 edits CLAUDE.md, AGENTS.md, `.cursor/rules`, `settings.json`, `config.toml` or any other instructions or
@@ -49,14 +53,20 @@ chooses to share an improvement.
    `MSTACK log <skill> --outcome reached|partial|not-reached --needed-user "<where it needed the person>" --stalled "<where it stalled>" --correction "<what the person corrected>"`
    (each flag can repeat; leave out what did not happen). It goes to `~/.mstack/journal/<skill>.jsonl`.
 2. **"Review my skills"** (when the person asks, or once when the session start note says a review is due):
-   - `MSTACK review --json` gathers the journal since the last review into evidence per skill.
+   - `MSTACK review --json` gathers the journal since the last review into evidence per skill. It only reads:
+     run it as often as you like, it changes nothing and gives the same answer.
    - For each skill with new uses, read its `SKILL.md` and the evidence, and propose concrete edits: a rule
      to add ("Ask about the deploy target in the first batch of questions") or a change to the skill's
      wording. One line each, with the evidence behind it.
-   - Show them to the person in one batch. Keep only what they accept: `MSTACK learn <skill> "<rule>"`.
+   - Show them to the person in one batch. Record each accepted one: `MSTACK learn <skill> "<rule>"`.
      Accepted rules live in `~/.mstack/learned/<skill>.md`, survive mStack updates, and win over the
      skill's own file.
-3. **Sharing an improvement** is the person's choice: `MSTACK learned <skill>` prints what was learned, and
+   - Then `MSTACK review --done` marks the journal reviewed and writes the day's evidence file
+     (`~/.mstack/reviews/<day>.md`). Until it has run, the session start note keeps saying a review is due.
+3. **Seeing and removing what was learned**: `MSTACK learned` lists every skill that has learned rules, numbered;
+   `MSTACK learned <skill>` lists one skill's rules. `MSTACK unlearn <skill> <n>` removes rule number n (as
+   numbered by `learned`) and prints what it removed.
+4. **Sharing an improvement** is the person's choice: `MSTACK learned <skill>` prints what was learned, and
    they can open an issue or pull request on github.com/mark-hallam/mstack with it if they want to.
 
 ## A rules file per project
@@ -74,7 +84,9 @@ is `- none` drops the global rules under that heading.
 - `MSTACK rules show [--project <folder>] [--brief]` prints the merged rules; `--brief` is the block to paste
   into a brief you write for another agent. The crew, multi-evaluator and design-direction briefs add it themselves.
 - `MSTACK rules import` reads the person's feedback memories and only **proposes** rules, numbered. Nothing is
-  written until `MSTACK rules accept <n> ...` (only `accept` writes rules from memories).
+  written until `MSTACK rules accept <n> ...` (only `accept` writes rules from memories). From any other agent,
+  point it at the notes you have instead: `MSTACK rules import --from <file or folder>` (repeatable; any
+  Markdown or text files, bullet lines become proposals under the matching heading).
 - `MSTACK rules list` shows every known project.
 
 Keep real secrets out of the file: a rule may name a kind of secret ("the family name"), never the secret.
@@ -112,6 +124,13 @@ pushes or sends anything itself.
 
 ## Setting mStack up in each agent
 
+- **Notification text**: a hook or Codex notification says only "Turn finished in <project folder>" (or "Waiting for
+  you in <project folder>"). The agent's reply text is private by default and stays out, including from ntfy. The
+  person can add the first 160 characters of the reply by setting `"notify_reply_text": true` in
+  `~/.mstack/config.json`; every `setup` preview and `ping test` say what text a notification carries and where it goes.
+- **Undoing a setup**: every `setup` form takes `--remove` (a preview first, then `--write`). It takes out only what
+  mStack added, puts a chained `notify` line back exactly as it was, and deletes a file mStack created when nothing
+  else is in it. If the file is a symbolic link, the preview names the real file that changes.
 - **Claude Code**: install the plugin (`/plugin marketplace add mark-hallam/mstack`, then
   `/plugin install mstack@mstack`). Its session start hook adds the always-on rules to every session.
 - **Codex**: `MSTACK setup codex` shows what it would add: mStack's routing block in `~/.codex/AGENTS.md`
@@ -119,9 +138,10 @@ pushes or sends anything itself.
   reliably) and ping-me's `notify` line in `~/.codex/config.toml`. If a `notify` program is already there,
   it is chained, not replaced: mStack pings first, then the person's own program runs with the same event;
   the original line is kept in a comment and a `.mstack-backup` copy. Ask the person, then run it again
-  with `--write`. Run it again after an mStack update to refresh the block.
+  with `--write`. Run it again after an mStack update to refresh the block. `MSTACK setup codex --remove` takes
+  both back out.
 - **Cursor**: `MSTACK setup cursor --project <folder>` shows an always-applied rule for that project. Ask,
-  then `--write`.
+  then `--write`. `--remove` deletes the rule file it wrote.
 - **Any other agent**: `MSTACK routing` prints the block to paste into its instructions, or point it at
   https://github.com/mark-hallam/mstack/blob/main/docs/agents.md.
 
