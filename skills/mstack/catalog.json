@@ -1,0 +1,70 @@
+{
+  "note": "The one source of truth for which skills exist and when each switches on. The tables in SKILL.md, AGENTS.md and docs/agents.md, the routing block and the session start note are generated from this file: run `mstack.py catalog --write` after changing it.",
+  "skills": [
+    {
+      "name": "ping-me",
+      "default": "On",
+      "when": "You need the person's decision or input, or a task they asked for is complete or blocked. On by default: notify them without being asked."
+    },
+    {
+      "name": "outcome-first",
+      "default": "On",
+      "when": "Any task bigger than a few steps: pin the outcome, ask every question in one batch with defaults, then run to a verified outcome without further input."
+    },
+    {
+      "name": "multi-evaluator",
+      "default": "On",
+      "when": "Someone wants a product's design reviewed and improved in rounds by independent AI reviewers from different makers until it is ready for real people (every journey 9 or better, reviewers agreeing, no high fix open, two rounds running)."
+    },
+    {
+      "name": "design-direction",
+      "default": "On",
+      "when": "Someone wants to find the look of a new product, choose between design directions, or make on-brand variants to pick from: up to four whole working directions from one brief, a comparison page with a recommendation, the person's pick, structure-only variants with numbered questions, then a locked brand file."
+    },
+    {
+      "name": "away-mode",
+      "default": "On",
+      "when": "You are about to present a file, report, mockup, screenshot or link, or the person says they are on their phone, away, out or back. Notice when they are away and deliver phone-readable copies (PNG, PDF, files in the chat, key points in the reply)."
+    },
+    {
+      "name": "crew",
+      "default": "On",
+      "when": "The person wants work to carry on in the background while they are away or asleep, within the usage they already pay for: a queue across every project on the cheapest fitting model, 15% of every usage window kept for them, drafts and side branches only, one morning digest. Also \"what did the crew finish\" and \"what is my usage\"."
+    },
+    {
+      "name": "mstack",
+      "default": "On",
+      "when": "The person asks what is happening across their projects, wants a brief for another agent or a rules file for a project, switches a skill off or on, asks to \"review my skills\", or an mStack skill has just finished.",
+      "commands": [
+        {
+          "command": "status",
+          "use_when": "The person asks what is happening across all their projects or what is waiting on them."
+        },
+        {
+          "command": "brief",
+          "use_when": "The person asks for a brief for a tester, reviewer, worker, researcher or security check they are about to start."
+        },
+        {
+          "command": "rules",
+          "use_when": "The person wants a rules file for a project, or the same rules carried into every brief."
+        },
+        {
+          "command": "disable <skill>",
+          "use_when": "The person says to switch a skill off for good (`enable <skill>` switches it back on). For one task, just do not use it."
+        },
+        {
+          "command": "review",
+          "use_when": "The person asks to \"review my skills\", what their skills have learned, or to improve a skill."
+        },
+        {
+          "command": "log <skill>",
+          "use_when": "After any mStack skill finishes: record privately how it went."
+        },
+        {
+          "command": "setup codex",
+          "use_when": "The person wants mStack set up in Codex, Cursor (`setup cursor`) or Claude Code hooks (`setup claude-hooks`)."
+        }
+      ]
+    }
+  ]
+}

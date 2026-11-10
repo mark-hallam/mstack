@@ -395,8 +395,19 @@ def cmd_uninstall(args):
     out(args, r, "%s: %s (label %s)" % ("would remove" if args.dry_run else "removed", ", ".join(r["removes"]), r["label"]))
 
 
+class JsonParser(argparse.ArgumentParser):
+    """Usage errors are {"ok": false, "error": ...} on standard output when --json was given."""
+    json_mode = False
+
+    def error(self, message):
+        if JsonParser.json_mode:
+            raise SystemExit("%s: %s" % (self.prog, message))
+        super().error(message)
+
+
 def main(argv=None):
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    JsonParser.json_mode = "--json" in (sys.argv[1:] if argv is None else list(argv))
+    ap = JsonParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="command")
     sub.required = True
 
@@ -427,8 +438,19 @@ def main(argv=None):
     cmd("stop", cmd_stopfile); cmd("go", cmd_stopfile)
     s = cmd("install", cmd_install); s.add_argument("--every", type=int, default=15); s.add_argument("--dry-run", action="store_true")
     s = cmd("uninstall", cmd_uninstall); s.add_argument("--dry-run", action="store_true")
-    args = ap.parse_args(argv)
-    args.fn(args)
+    try:
+        args = ap.parse_args(argv)
+        args.fn(args)
+    except SystemExit as e:                         # with --json, a plain message is {"ok": false, "error": ...}, exit 1
+        if JsonParser.json_mode and isinstance(e.code, str):
+            print(json.dumps({"ok": False, "error": e.code}))
+            sys.exit(1)
+        raise
+    except Exception as e:
+        if not JsonParser.json_mode:
+            raise
+        print(json.dumps({"ok": False, "error": "%s: %s" % (type(e).__name__, e)}))
+        sys.exit(1)
 
 
 if __name__ == "__main__":

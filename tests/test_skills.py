@@ -27,7 +27,10 @@ def read(*p):
 
 def main():
     names = sorted(d for d in os.listdir(os.path.join(ROOT, "skills")) if os.path.exists(os.path.join(ROOT, "skills", d, "SKILL.md")))
-    check(names == ["away-mode", "crew", "design-direction", "mstack", "multi-evaluator", "outcome-first", "ping-me"], "the skills are: %s" % ", ".join(names))
+    catalog = [e["name"] for e in json.loads(read("skills", "mstack", "catalog.json"))["skills"]]
+    check(sorted(catalog) == names and len(set(catalog)) == len(catalog),
+          "every skill folder has one catalog entry and every entry has a folder (%s)" % ", ".join(names))
+    check(all(e.get("when") for e in json.loads(read("skills", "mstack", "catalog.json"))["skills"]), "every catalog entry says when it switches on")
     index, readme, agents, page = read("skills", "mstack", "SKILL.md"), read("README.md"), read("AGENTS.md"), read("docs", "agents.md")
     for n in names:
         text = read("skills", n, "SKILL.md")

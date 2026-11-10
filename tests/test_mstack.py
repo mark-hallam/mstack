@@ -259,13 +259,6 @@ def main():
               "cursor setup writes an always-applied rule")
     finally:
         shutil.rmtree(work, ignore_errors=True)
-    if not failures:                                            # the 0.7.2 tests live in test_mstack_*.py
-        here = os.path.dirname(os.path.abspath(__file__))
-        for name in sorted(os.listdir(here)):
-            if name.startswith("test_mstack_") and name.endswith(".py"):
-                print("\n==== %s" % name, flush=True)
-                if subprocess.run([sys.executable, os.path.join(here, name)]).returncode != 0:
-                    failures.append(name)
     print("\n%s" % ("all checks passed" if not failures else "%d checks failed" % len(failures)))
     sys.exit(1 if failures else 0)
 

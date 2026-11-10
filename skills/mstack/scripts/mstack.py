@@ -9,6 +9,7 @@ $MSTACK_HOME) unless the person turns on a phone service such as ntfy themselves
   disable <skill> | enable <skill>     switch a skill off or on everywhere (~/.mstack/config.json)
   session-start                        the always-on rules for this session (used by the Claude Code plugin hook)
   routing                              the same rules as a block for AGENTS.md or Cursor rules
+  catalog [--check | --write]          the tables generated from skills/mstack/catalog.json: check them, or rewrite them
 
   log <skill> --outcome reached|partial|not-reached [--needed-user ...] [--stalled ...] [--correction ...] [--note ...]
                                        record privately how one use of a skill went
@@ -44,6 +45,8 @@ import brief as brief_tool  # noqa: E402  (one line becomes a complete brief)
 import journal_review as journal_cmds  # noqa: E402
 import learned as learned_cmds  # noqa: E402
 import notify as notify_cmds  # noqa: E402
+import catalog  # noqa: E402  (the skills catalog)
+import install_state  # noqa: E402  (install.json and the launcher)
 import setup_agents  # noqa: E402
 import setup_codex  # noqa: E402
 import setup_ntfy  # noqa: E402
@@ -81,22 +84,39 @@ def cmd_switch(args):
 # ---------------------------------------------------------------- the always-on rules
 
 def rules(for_hook):
+    """The always-on rules. For a hook (this session) commands may use paths into this copy of mStack; for another
+    agent's instructions they use only the launcher in the mStack home, which survives updates."""
     cfg = load_config()
-    all_ = skills()
-    on = [s for s in all_ if is_on(s["name"], cfg) and s["name"] != "mstack"]
-    off = [s["name"] for s in all_ if not is_on(s["name"], cfg)]
-    tool = "python3 %s" % shlex.quote(SELF)
+    found = {s["name"]: s for s in skills()}
+    listed = catalog.load()
+    entries = [e for e in listed if e["name"] in found] + [
+        dict(name=n, when=found[n]["summary"]) for n in found if n not in [e["name"] for e in listed]]
+    on = [e for e in entries if is_on(e["name"], cfg)]
+    off = [e["name"] for e in entries if not is_on(e["name"], cfg)]
+    launcher = install_state.launcher_path()
+
+    def run(skill, script, *more):
+        """The command prefix for one of the skills' scripts."""
+        if for_hook:
+            return " ".join(["python3 %s" % shlex.quote(os.path.join(SKILLS, skill, "scripts", script))] + list(more))
+        return " ".join(["python3 %s tool %s %s" % (shlex.quote(launcher), skill, script)] + list(more))
+
+    tool = "python3 %s" % shlex.quote(SELF if for_hook else launcher)
     lines = ["mStack is installed. Its skills switch on by themselves when relevant: the person never has to name "
              "one. Follow a skill's SKILL.md when its moment comes:"]
-    for s in on:
-        lines.append("- %s: %s (%s)" % (s["name"], s["summary"], os.path.join(s["folder"], "SKILL.md")))
+    for e in on:
+        where = os.path.join(found[e["name"]]["folder"], "SKILL.md") if for_hook else "SKILL.md: run %s where %s" % (
+            tool, e["name"])
+        lines.append("- %s: %s (%s)" % (e["name"], e["when"], where))
+        for c in e.get("commands", []):
+            lines.append("    - %s %s: %s" % (tool, c["command"], c["use_when"]))
     if off:
         lines.append("Switched off by the person (do not use): %s. If they say \"don't use <skill>\" for a task, "
                      "honour it for that task." % ", ".join(off))
     lines.append("To switch a skill off for good, run only: %s disable <skill> (it writes %s). Never edit CLAUDE.md, "
                  "AGENTS.md, settings.json or any other instructions or settings file for a switch, and never unset "
                  "MSTACK_HOME to reach another home." % (tool, home("config.json")))
-    names = [s["name"] for s in on]
+    names = [e["name"] for e in on]
     if "ping-me" in names:
         lines.append("Always on, ping me: whenever you need the person's decision or input, or a task they asked for "
                      "is complete or blocked, notify them at once without being asked (%s; one line under 200 "
@@ -110,23 +130,22 @@ def rules(for_hook):
                      "done looks like, ask every question in one batch with defaults, then run to a verified outcome "
                      "without further input (see outcome-first's SKILL.md).")
     if "away-mode" in names:
-        away = os.path.join(SKILLS, "away-mode", "scripts", "away.py")
         lines.append("Always on, away mode: before presenting any file, report, mockup, screenshot or link, run "
-                     "python3 %s status (add --hint \"<what the harness told you>\" if it said the person follows from "
+                     "%s (add --hint \"<what the harness told you>\" if it said the person follows from "
                      "another device, or a push was not sent because they are at the terminal). If away is true or "
-                     "unsure, make phone-readable copies (python3 %s render <file-or-address>), send them to the chat "
+                     "unsure, make phone-readable copies (%s <file-or-address>), send them to the chat "
                      "(%s), put the 3 to 5 key points in the reply, and never end with only a local path or an open "
-                     "command. When they say they are on their phone or back, record it: python3 %s set away|back." % (
-                         shlex.quote(away), shlex.quote(away),
+                     "command. When they say they are on their phone or back, record it: %s away|back." % (
+                         run("away-mode", "away.py", "status"), run("away-mode", "away.py", "render"),
                          "the SendUserFile tool" if for_hook else "your agent's file-sending tool, or a private link",
-                         shlex.quote(away)))
+                         run("away-mode", "away.py", "set")))
     if "crew" in names and os.path.exists(home("crew", "config.json")):
-        crew = os.path.join(SKILLS, "crew", "scripts", "crew.py")
         lines.append("Always on, crew: the person's crew is set up. At a natural pause, or when they ask what finished, run "
-                     "python3 %s status and tell them what finished, what waits for them (answer with python3 %s answer "
+                     "%s and tell them what finished, what waits for them (answer with %s "
                      "<id> \"...\"), and the usage against the cap. When they ask what is happening across their projects, run "
-                     "python3 %s status instead. Never install, push or answer a question for them." % (
-                         shlex.quote(crew), shlex.quote(crew), shlex.quote(os.path.join(HERE, "status.py"))))
+                     "%s instead. Never install, push or answer a question for them." % (
+                         run("crew", "crew.py", "status"), run("crew", "crew.py", "answer"),
+                         "python3 %s status" % shlex.quote(os.path.join(HERE, "status.py")) if for_hook else "%s status" % tool))
     here = rules_file.find_project(os.getcwd()) if for_hook else None
     if here and os.path.exists(os.path.join(here, "rules.md")):
         lines.append("This project's rules: %s. Every brief you write for another agent must carry them: python3 %s show "
@@ -139,11 +158,11 @@ def rules(for_hook):
                  "%s exists, it holds the person's accepted improvements to that skill: follow it." % (
                      tool, home("learned", "<skill>.md")))
     due = []
-    for s in on:
-        n = len(journal(s["name"]))
-        seen = (last_review(s["name"]) or {}).get("uses", 0)
+    for e in on:
+        n = len(journal(e["name"]))
+        seen = (last_review(e["name"]) or {}).get("uses", 0)
         if n - seen >= int(cfg.get("review_every", 10)):
-            due.append("%s (%d uses since its last review)" % (s["name"], n - seen))
+            due.append("%s (%d uses since its last review)" % (e["name"], n - seen))
     if due:
         lines.append("Review due: %s. At a natural pause, offer once to \"review my skills\" (the mstack skill)." %
                      "; ".join(due))
@@ -151,15 +170,23 @@ def rules(for_hook):
 
 
 def cmd_session_start(args):
-    say(args, {"ok": True, "text": rules(for_hook=True)}, rules(for_hook=True))
+    install_state.refresh()                          # the launcher and install.json follow wherever mStack runs from
+    text = rules(for_hook=True)
+    say(args, {"ok": True, "text": text}, text)
 
 
 def cmd_routing(args):
     block = "<!-- mstack:start -->\n## mStack\n\n%s\n<!-- mstack:end -->" % rules(for_hook=False)
-    say(args, {"ok": True, "text": block}, block)
+    ready = install_state.ready()
+    if not ready and not getattr(args, "json", False):
+        print("note: the launcher these commands use is not in place yet; run %s session-start once, or a setup "
+              "command with --write." % shlex.quote(SELF), file=sys.stderr)
+    say(args, {"ok": True, "text": block, "launcher": install_state.launcher_path(), "launcher_ready": ready}, block)
 
 
 def cmd_setup(args):
+    if args.write and args.target != "ntfy":
+        install_state.refresh()                      # before the routing block names the launcher
     routing = rules(for_hook=False)
     if args.target == "claude-hooks":
         out = setup_agents.setup_claude(args)
@@ -212,6 +239,10 @@ def build_parser():
     add("enable", cmd_switch, "skill")
     add("session-start", cmd_session_start)
     add("routing", cmd_routing)
+    s = add("catalog", catalog.cmd_catalog, help="check or rewrite the tables generated from the skills catalog")
+    g = s.add_mutually_exclusive_group()
+    g.add_argument("--check", action="store_true", help="exit 1 and name each file whose generated part differs (the default)")
+    g.add_argument("--write", action="store_true", help="rewrite the generated parts")
     s = add("log", journal_cmds.cmd_log, "skill")
     s.add_argument("--outcome", required=True, choices=OUTCOMES)
     s.add_argument("--needed-user", action="append", default=[], help="where it needed the person (repeatable)")

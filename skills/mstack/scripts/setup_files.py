@@ -3,12 +3,10 @@
 Python 3.9 or later, standard library only. Every setup changes the file a symbolic link points to, so these
 helpers always work on the real path, and the preview names it.
 """
-import glob
 import os
 import re
 import shutil
 
-from mbase import HERE, home
 
 START, END = "<!-- mstack:start -->", "<!-- mstack:end -->"
 BLOCK_RE = re.compile(re.escape(START) + ".*?" + re.escape(END), re.S)
@@ -51,13 +49,11 @@ def keep_backup(path):
 
 
 def stable_copy():
-    """A copy of this tool in ~/.mstack/bin (with the modules it imports), so hooks keep working when a plugin update
-    moves the original."""
-    dest = home("bin")
-    os.makedirs(dest, exist_ok=True)
-    for src in glob.glob(os.path.join(HERE, "*.py")):
-        shutil.copyfile(src, os.path.join(dest, os.path.basename(src)))
-    return os.path.join(dest, "mstack.py")
+    """Make sure the launcher in ~/.mstack/bin and install.json are current, so hooks keep working when a plugin
+    update moves the original. Returns the launcher's path."""
+    import install_state
+    install_state.refresh()
+    return install_state.launcher_path()
 
 
 def add_block(text, block):

@@ -14,16 +14,31 @@ The shared tool is `scripts/mstack.py` (next to this file). Below, `MSTACK` mean
 
 ## The skills, and when each switches on
 
+<!-- mstack:catalog:start -->
 | Skill | Switches on when | Default |
 |---|---|---|
-| ping-me | You need the person's decision or input, or a task they asked for is complete or blocked. | On |
-| outcome-first | Any task bigger than a few steps: pin the outcome, ask every question in one batch, then run to a verified outcome without further input. | On |
+| ping-me | You need the person's decision or input, or a task they asked for is complete or blocked. On by default: notify them without being asked. | On |
+| outcome-first | Any task bigger than a few steps: pin the outcome, ask every question in one batch with defaults, then run to a verified outcome without further input. | On |
 | multi-evaluator | Someone wants a product's design reviewed and improved in rounds by independent AI reviewers from different makers until it is ready for real people (every journey 9 or better, reviewers agreeing, no high fix open, two rounds running). | On |
 | design-direction | Someone wants to find the look of a new product, choose between design directions, or make on-brand variants to pick from: up to four whole working directions from one brief, a comparison page with a recommendation, the person's pick, structure-only variants with numbered questions, then a locked brand file. | On |
-| away-mode | You are about to present a file, report, mockup, screenshot or link, or the person says they are on their phone, away, out or back: notice when they are away and deliver phone-readable copies (PNG, PDF, files in the chat, key points in the reply). | On |
-| crew | The person wants work to carry on in the background while they are away or asleep, within the usage they already pay for: a queue across every project (plans, evaluator fixes, failing tests, daily jobs) on the cheapest fitting model, 15% of every usage window kept for them, drafts and side branches only, one morning digest. Also "what did the crew finish" and "what is my usage". | On |
+| away-mode | You are about to present a file, report, mockup, screenshot or link, or the person says they are on their phone, away, out or back. Notice when they are away and deliver phone-readable copies (PNG, PDF, files in the chat, key points in the reply). | On |
+| crew | The person wants work to carry on in the background while they are away or asleep, within the usage they already pay for: a queue across every project on the cheapest fitting model, 15% of every usage window kept for them, drafts and side branches only, one morning digest. Also "what did the crew finish" and "what is my usage". | On |
+| mstack | The person asks what is happening across their projects, wants a brief for another agent or a rules file for a project, switches a skill off or on, asks to "review my skills", or an mStack skill has just finished. | On |
 
-`MSTACK skills` prints the same list with each skill's state. Read a skill's `SKILL.md` when it switches on.
+What mstack offers (`MSTACK <command>`):
+
+- `MSTACK status`: The person asks what is happening across all their projects or what is waiting on them.
+- `MSTACK brief`: The person asks for a brief for a tester, reviewer, worker, researcher or security check they are about to start.
+- `MSTACK rules`: The person wants a rules file for a project, or the same rules carried into every brief.
+- `MSTACK disable <skill>`: The person says to switch a skill off for good (`enable <skill>` switches it back on). For one task, just do not use it.
+- `MSTACK review`: The person asks to "review my skills", what their skills have learned, or to improve a skill.
+- `MSTACK log <skill>`: After any mStack skill finishes: record privately how it went.
+- `MSTACK setup codex`: The person wants mStack set up in Codex, Cursor (`setup cursor`) or Claude Code hooks (`setup claude-hooks`).
+<!-- mstack:catalog:end -->
+
+`MSTACK skills` prints the same list with each skill's state. The table above and the ones in AGENTS.md and
+`docs/agents.md` are generated from `catalog.json` (next to this file): change a line there, then run
+`MSTACK catalog --write`; `MSTACK catalog --check` exits 1 and names any file that has drifted. Read a skill's `SKILL.md` when it switches on.
 
 ## Switching skills off
 
@@ -142,6 +157,10 @@ pushes or sends anything itself.
   both back out.
 - **Cursor**: `MSTACK setup cursor --project <folder>` shows an always-applied rule for that project. Ask,
   then `--write`. `--remove` deletes the rule file it wrote.
+- **The launcher**: `session-start` and every `setup ... --write` keep `~/.mstack/bin/mstack.py` and
+  `~/.mstack/install.json` current. Hooks, the Codex notify line and the routing block for other agents call the
+  launcher (`mstack.py <command>`, `mstack.py tool <skill> <script> ...`, `mstack.py where [<skill>]`), so they keep
+  working when a plugin update moves the skills folder.
 - **Any other agent**: `MSTACK routing` prints the block to paste into its instructions, or point it at
   https://github.com/mark-hallam/mstack/blob/main/docs/agents.md.
 
