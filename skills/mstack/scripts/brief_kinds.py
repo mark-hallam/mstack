@@ -5,6 +5,9 @@ Plain functions that return lines, so brief.py stays short. Standard library onl
 
 KINDS = ("tester", "reviewer", "worker", "research", "security")
 
+ROLE = {"tester": "tester", "reviewer": "reviewer", "worker": "worker", "research": "researcher",
+        "security": "security checker"}
+
 ONE_LINE = {
     "tester": "plays a named person using the real thing and reports what happened, with a release or hold gate",
     "reviewer": "scores the journeys blind, in the same reply format multi-evaluator's reviewers use",

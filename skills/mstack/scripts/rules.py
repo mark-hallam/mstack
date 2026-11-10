@@ -11,7 +11,8 @@ repository, because never-touch paths, ports and test families are private.
   init [--project F] [--global] [--force]   write the template (refuses to overwrite without --force)
   show [--project F] [--brief]              the merged rules, each with its source; --brief is the text for a brief
   list                                      every known project
-  import [--project F] [--memory-dir D]     propose rules from feedback memories (writes no rules)
+  import [--project F] [--memory-dir D] [--from FILE_OR_FOLDER ...]   propose rules from feedback memories, or from any
+                                            Markdown or text files (writes no rules)
   accept [--project F] N [N ...]            write the numbered proposals into the project's rules file
 
 Every command takes --json. --project defaults to the current folder. Other tools import block(folder) to paste
@@ -325,19 +326,30 @@ def cmd_list(args):
 
 def cmd_import(args):
     folder = folder_of(args)
-    mem = args.memory_dir or memory_dir(folder)
-    if not os.path.isdir(mem):
-        emit(args, {"proposals": [], "memory_dir": mem}, "No memories found at %s" % mem)
-        return
-    props = proposals_from(mem)
+    props, places = [], []
+    if args.sources:
+        import rules_import
+        try:
+            props = rules_import.proposals_from_files(args.sources, sys.modules[__name__])
+        except ValueError as e:
+            die(str(e))
+        places = list(args.sources)
+    if args.memory_dir or not args.sources:
+        mem = args.memory_dir or memory_dir(folder)
+        places.append(mem)
+        if os.path.isdir(mem):
+            seen = set(norm(p["rule"]) for p in props)
+            for p in proposals_from(mem):
+                if norm(p["rule"]) not in seen:
+                    props.append(dict(p, n=len(props) + 1))
     if not props:
-        emit(args, {"proposals": [], "memory_dir": mem}, "No memories found at %s" % mem)
+        emit(args, {"proposals": [], "memory_dir": places[-1], "read": places}, "No memories found at %s" % ", ".join(places))
         return
     with open(os.path.join(ensure_project(folder), "proposed.json"), "w", encoding="utf-8") as fh:
         json.dump(props, fh, indent=2)
         fh.write("\n")
     text = "\n".join("%d. [%s] %s  (from %s)" % (p["n"], p["heading"], p["rule"], p["from"]) for p in props)
-    emit(args, {"proposals": props, "memory_dir": mem},
+    emit(args, {"proposals": props, "memory_dir": places[-1], "read": places},
          text + "\n\nNothing is written yet. To keep some: python3 %s accept --project %s <n> [<n> ...]" % (
              os.path.abspath(__file__), folder))
 
@@ -374,8 +386,8 @@ def cmd_accept(args):
     emit(args, {"added": added, "already_there": skipped, "file": path}, "\n".join(lines + ["File: " + path]))
 
 
-def main(argv=None):
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+def main(argv=None, prog=None):
+    ap = argparse.ArgumentParser(prog=prog, description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="command", required=True)
 
     def add(name, fn, project=True):
@@ -394,6 +406,8 @@ def main(argv=None):
     add("list", cmd_list, project=False)
     s = add("import", cmd_import)
     s.add_argument("--memory-dir", help="a folder of feedback memories (default: Claude Code's memory for the project)")
+    s.add_argument("--from", dest="sources", action="append", default=[], metavar="FILE_OR_FOLDER",
+                   help="any Markdown or text file, or a folder of them (repeatable); with it, the memory folder is read only if --memory-dir is given")
     s = add("accept", cmd_accept)
     s.add_argument("numbers", nargs="+", type=int, help="proposal numbers from import")
     args = ap.parse_args(sys.argv[1:] if argv is None else list(argv))

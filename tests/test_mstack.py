@@ -68,7 +68,7 @@ def main():
         run("ping", "should not arrive")
         check(pings() == [], "no ping while ping-me is off")
         run("enable", "ping-me")
-        run("disable", "no-such-skill", expect=1)
+        run("disable", "no-such-skill", expect=2)
         check(True, "an unknown skill is refused")
         check("run only:" in start and "disable <skill>" in start and "Never edit CLAUDE.md" in start,
               "the session start rules say the off switch is the config file and nothing else")
@@ -108,14 +108,14 @@ def main():
         run("ping", "hook", stdin=json.dumps({"hook_event_name": "Notification", "cwd": "/tmp/shop",
                                               "message": "Claude needs your permission to use Bash",
                                               "notification_type": "permission_prompt"}))
-        check(pings()[-1] == "Claude needs you: shop|Claude needs your permission to use Bash",
-              "the Claude Code Notification hook pings")
+        check(pings()[-1] == "Claude needs you: shop|Waiting for you in shop",
+              "the Claude Code Notification hook pings, without the agent's words (reply text is private by default)")
         run("ping", "hook", stdin=json.dumps({"hook_event_name": "Stop", "cwd": "/tmp/shop",
                                               "last_assistant_message": "Done: the site is live."}))
-        check(pings()[-1] == "Claude finished: shop|Done: the site is live.", "the Claude Code Stop hook pings")
+        check(pings()[-1] == "Claude finished: shop|Turn finished in shop", "the Claude Code Stop hook pings, without the reply text")
         run("ping", "codex-event", json.dumps({"type": "agent-turn-complete", "cwd": "/tmp/api",
                                                "last-assistant-message": "All tests pass."}))
-        check(pings()[-1] == "Codex finished: api|All tests pass.", "the Codex notify event pings")
+        check(pings()[-1] == "Codex finished: api|Turn finished in api", "the Codex notify event pings, without the reply text")
         n = len(pings())
         run("ping", "codex-event", json.dumps({"type": "something-else"}))
         check(len(pings()) == n, "other Codex events do not ping")
@@ -173,13 +173,16 @@ def main():
         json.dump(cfg, open(os.path.join(work, "home", "config.json"), "w"))
         check("Review due: outcome-first (3 uses" in run("session-start"), "a review is offered after enough uses")
         rev = json.loads(run("review", "--json"))
+        check(not os.path.exists(os.path.join(work, "home", "reviews")) and "Review due" in run("session-start"),
+              "a plain review only reads: it writes nothing and the review is still due")
         r = rev["skills"]["outcome-first"]
         check(r["outcomes"] == {"reached": 2, "partial": 1, "not-reached": 0}, "review counts the outcomes")
         check(r["needed_user"] == [["the deploy target", 3]] and r["corrections"] == [["use the staging site first", 3]],
               "review gathers where it needed the person and their corrections")
-        check(os.path.exists(rev["review"]) and "the deploy target (3)" in open(rev["review"]).read(),
-              "review writes the evidence file")
-        check("Review due" not in run("session-start"), "after a review, it is no longer due")
+        done = json.loads(run("review", "--done", "--json"))
+        check(os.path.exists(done["review"]) and "the deploy target (3)" in open(done["review"]).read(),
+              "review --done writes the evidence file")
+        check("Review due" not in run("session-start"), "after review --done, it is no longer due")
         run("learn", "outcome-first", "Ask for the deploy target in the first batch of questions.")
         check("Ask for the deploy target" in run("learned", "outcome-first"), "learn keeps an accepted improvement")
 
@@ -232,7 +235,7 @@ def main():
         m = re.search(r'(?m)^notify = (.*)$', text)
         chained = json.loads(m.group(1))
         check(chained[:1] == ["python3"] and "codex-event" in chained and "--also" in chained
-              and json.loads(chained[-1]) == theirs and "# mStack chained" in text and 'model = "y"' in text,
+              and json.loads(chained[-1]) == theirs and "# mstack-original-notify: " in text and 'model = "y"' in text,
               "codex setup --write chains the person's own notify after mStack's ping")
         n = len(pings())
         subprocess.run([sys.executable, TOOL] + chained[2:] + [json.dumps({"type": "agent-turn-complete", "cwd": "/tmp/x",
@@ -241,7 +244,7 @@ def main():
         check(len(pings()) == n + 1 and open(mine).read().count("agent-turn-complete") == 1,
               "the chained notify pings and then runs the person's own program with the event")
         run("setup", "codex", "--codex-config", other, "--write")
-        check(open(other).read().count("notify =") == 1, "a chained notify is not chained twice")
+        check(len(re.findall(r"(?m)^notify =", open(other).read())) == 1, "a chained notify is not chained twice")
         odd = os.path.join(work, "codex3", "config.toml")
         os.makedirs(os.path.dirname(odd))
         open(odd, "w").write('notify = "not-a-list"\n')
@@ -256,6 +259,13 @@ def main():
               "cursor setup writes an always-applied rule")
     finally:
         shutil.rmtree(work, ignore_errors=True)
+    if not failures:                                            # the 0.7.2 tests live in test_mstack_*.py
+        here = os.path.dirname(os.path.abspath(__file__))
+        for name in sorted(os.listdir(here)):
+            if name.startswith("test_mstack_") and name.endswith(".py"):
+                print("\n==== %s" % name, flush=True)
+                if subprocess.run([sys.executable, os.path.join(here, name)]).returncode != 0:
+                    failures.append(name)
     print("\n%s" % ("all checks passed" if not failures else "%d checks failed" % len(failures)))
     sys.exit(1 if failures else 0)
 

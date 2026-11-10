@@ -91,7 +91,7 @@ class BriefTest(unittest.TestCase):
             self.assertEqual(order, sorted(order))
             self.assertLess(text.index("HANDOFF.md"), text.index("## Rules"))
             self.assertTrue(text.startswith("# %s: check the %s thing" % (kind.capitalize(), kind)))
-            self.assertIn("You are the %s for demo-app." % kind, text)
+            self.assertIn("You are the %s for demo-app." % {"research": "researcher", "security": "security checker"}.get(kind, kind), text)
             self.assertEqual(data["rules_from"], [os.path.join(rules.project_dir(self.proj), "rules.md")])
             self.assertNotIn("Ask nothing", text)
         self.assertNotIn("verdict-format.md\n```", text)  # referenced, never pasted
