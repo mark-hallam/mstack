@@ -68,8 +68,10 @@ you need to do. What honestly reaches your phone: in Claude Code, with Remote Co
 Claude app delivers it to your phone and watch; in Codex, Cursor and headless runs the ping is a desktop
 alert on the computer, which does not reach a phone, unless you opt in to ntfy, a free phone push app
 (`mstack.py setup ntfy` walks you through it and writes nothing until you say yes; it is off by default
-because it sends the text to a third party). "No pings" for one task is forgotten next session by design;
-the off switch in `~/.mstack/config.json` is remembered.
+because it sends the text to a third party). A ping that a hook sends says only that a turn finished or is
+waiting for you, with the project folder's name. The agent's reply text stays on your computer unless you
+set `notify_reply_text` in `~/.mstack/config.json`. "No pings" for one task is forgotten next session by
+design; the off switch in that file is remembered.
 
 ### outcome-first: ask once, then done
 
@@ -182,8 +184,9 @@ person does.
 python3 tests/run_all.py
 ```
 
-It takes about seven minutes, most of it the review rounds in a real browser. This runs the leak and style scan, the packaging checks, and each skill's self-test: switches, pings (to a
-stand-in, never your real desktop), the private journal and reviews, the setup for each agent (on temporary
+It takes about seven minutes, most of it the review rounds in a real browser. This runs the leak scan,
+the style scan, the packaging checks, and each skill's self-test: switches, pings (to a stand-in, never
+your real desktop), the private journal and reviews, the setup for each agent (on temporary
 copies of the settings files), the outcome plan with a stand-in crontab, away detection with stand-in
 machine signals plus a real render when Chrome is present, the crew queue with a stand-in runner on a
 throwaway repository (the stop and ask at the reserve, retries, the browser lock, the stop file, an install

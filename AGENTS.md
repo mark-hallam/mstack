@@ -42,7 +42,7 @@ person's accepted improvements and wins over the skill's own file.
 - Run every test before every commit: `python3 tests/run_all.py`. The multi-evaluator self-test needs
   Google Chrome or Chromium.
 - Writing style for every file: plain English, Australian spelling, no dashes used as punctuation, and none of
-  the hype words listed in `tests/leak_scan.py`.
+  the hype words listed in `tests/style_scan.py`.
 - No personal data, private paths, email addresses or tokens in any file; `tests/leak_scan.py` checks.
 - A new skill goes in `skills/<name>/` with a `SKILL.md` that has `name` and `description` frontmatter and
   the "Before you start (every mStack skill)" section, plus a row in the table above, in the mstack index
