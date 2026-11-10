@@ -17,7 +17,9 @@ import report  # noqa: E402
 
 
 def git(*args, cwd):
-    return subprocess.run(["git"] + list(args), cwd=cwd, capture_output=True, text=True, check=True)
+    # a stand-in author, so a commit works on a computer where git has no name set
+    return subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@localhost"] + list(args), cwd=cwd,
+                          capture_output=True, text=True, check=True)
 
 
 class CaptureBuildTest(unittest.TestCase):

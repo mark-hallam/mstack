@@ -357,7 +357,7 @@ def main():
         heavy_j.update(state="done", finished=cst.stamp(), usage={"total_tokens": 250000}, evidence=["ok"], title=heavy_j["title"])
         q_heavy["jobs"].append(heavy_j)
         json.dump(q_heavy, open(q_path, "w"))
-        html_heavy = dg.build_html(dg.gather(cfg, q_heavy))
+        html_heavy = dg.build_html(dg.gather(cst.merge(cst.DEFAULTS, cfg), q_heavy))   # the full config, as crew loads it
         check("heavy for its tier" in html_heavy, "the digest marks a small job over 200k tokens as heavy for its tier")
         # the digest
         d = js("digest", "--no-send")

@@ -17,6 +17,7 @@ Every release of mStack, newest first. Dates are the day the release was made.
 - multi-evaluator: the starter template is neutral (a first-time user, and "Familiar" means the conventions of the platform it runs on). The Cursor reviewer is `cursor`, found on PATH, with the model left to you, and `review` names a reviewer program it cannot find. design-direction's taste example is neutral too.
 - Evidence is a release step: `tests/release_check.py` installs the release into an empty profile, asks ten plain phrases and writes the numbers in README.md and docs/evidence.md from the result. The suite fails when the current version has no run recorded.
 - tests: the leak scan (safety) and the style scan are separate tools, and both run in the suite and in the workflow.
+- tests: the suite passes on a computer with no git name set and no usage history, as the workflow's computers are. multi-evaluator's audit counts motion with motion allowed first, so the count is the same whatever the computer's own reduce motion setting.
 
 ## 0.7.1, 8 November 2026
 

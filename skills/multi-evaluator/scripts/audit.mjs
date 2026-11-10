@@ -91,6 +91,10 @@ export const COUNT_MOTION = `(()=>{ let n = 0;
 
 export async function runAudit(send, ev, scheme, sleep, width) {
   const out = (await ev(pageAudit(width))) || {};
+  // count with motion allowed first, whatever this computer's own reduce motion setting is
+  await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: scheme || 'light' },
+    { name: 'prefers-reduced-motion', value: 'no-preference' }] });
+  await sleep(150);
   const always = await ev(COUNT_MOTION);
   await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: scheme || 'light' },
     { name: 'prefers-reduced-motion', value: 'reduce' }] });

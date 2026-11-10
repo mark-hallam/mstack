@@ -81,7 +81,8 @@ def main():
             with open(os.path.join(fake_home, rel), "w") as fh:
                 fh.write(body)
         home2 = os.path.join(fake_home, ".mstack")
-        env2 = dict(env, HOME=fake_home, MSTACK_HOME=home2)
+        # Python keeps no compiled copies, so the listing holds only what the tool itself wrote (Apple's Python keeps them in the home)
+        env2 = dict(env, HOME=fake_home, MSTACK_HOME=home2, PYTHONDONTWRITEBYTECODE="1")
 
         def listing():
             found = {}
