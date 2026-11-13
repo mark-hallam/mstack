@@ -100,6 +100,27 @@ round's fixes**: the compare brief numbers them (f1, f2...), and the reply must 
 --compare` refuses a reply that leaves one out, and the report shows a re-grade table per round.
 A scoring reply may also list `could_not_test` and `did_not_touch`, so what was never checked is on record.
 
+**Check every critique.** Once a reviewer's verdict is saved, a separate checker (the config's `checker`,
+default Claude Opus 5.5, in fresh context, never the agent that wrote that review) re-tests its blocker,
+high and medium findings in the live product:
+
+```
+LOOP meta-brief --dir design-review                                 # rounds/r<N>/briefs/<reviewer>-meta.md, one per saved verdict
+LOOP meta --dir design-review --reviewer claude                     # checks rounds/r<N>/meta/claude.json (or pass the reply)
+```
+
+Each finding is marked confirmed, partly, not reproduced or wrong, with whether the severity fits and a fix
+quality score; the check also gives accuracy, the journey scores it would change, what the reviewer missed,
+and a critique quality score out of 10. The report shows them under "Critique quality". Act first on what
+the checks confirmed and on what they found the reviewers missed.
+
+**The evaluator scoreboard.** `verdict`, `meta` and `report` also record the round in a private ledger,
+so over many rounds and projects the person sees which evaluators to trust. It lives in the mStack home
+(`~/.mstack/evals/`, or `$MSTACK_HOME/evals/`), never in a repository. `scripts/evalboard.py board` writes
+the scoreboard there, `record --round <N>` and `backfill` re-read a review folder, and `board --public`
+writes a copy with project names replaced and the checker's notes left out, for publishing after a leak
+scan. `"scoreboard": false` in the config leaves a project off it.
+
 Then show the person the report and the light theme screenshots (`rounds/r<N>/shots/`). Send them a
 notification if your agent can (in Claude Code, PushNotification) when a round's report is ready or the
 loop needs a decision; the config's `notify` command can also send one (see `references/config.md`).
@@ -138,9 +159,11 @@ loop needs a decision; the config's `notify` command can also send one (see `ref
 ## Files
 
 - `scripts/eval_loop.py`: the command line tool (init, status, start-round, capture, brief, serve, review,
-  verdict, validate, report, notify).
+  verdict, validate, meta-brief, meta, report, notify).
 - `scripts/drive.mjs`: the journey driver, a real headless Chrome; reviewers use it directly.
 - `scripts/report.py`: the report builder. `scripts/readiness.py`: the stopping rule and the noise check.
+- `scripts/critique.py`: critique checks (`meta-brief`, `meta`). `scripts/evalboard.py`: the private
+  evaluator scoreboard (record, backfill, board, `--public`).
 - `templates/mstack-eval.json`: the starter config.
 - `references/config.md`: every config field. `references/verdict-format.md`: the reply format.
   `references/method.md`: why the loop works this way and how the criteria grow.
