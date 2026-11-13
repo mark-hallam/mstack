@@ -7,6 +7,7 @@ import tempfile
 import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+os.environ["MSTACK_HOME"] = __import__("tempfile").mkdtemp(prefix="mstack-home-")   # the evaluator scoreboard writes here, never to the real home
 SCRIPTS = os.path.join(ROOT, "skills", "multi-evaluator", "scripts")
 sys.path.insert(0, SCRIPTS)
 import eval_loop  # noqa: E402

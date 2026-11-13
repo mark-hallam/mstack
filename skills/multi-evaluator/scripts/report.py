@@ -16,6 +16,7 @@ import availability  # noqa: E402
 import readiness  # noqa: E402
 from report_audit import measured  # noqa: E402
 import regrade  # noqa: E402
+import critique  # noqa: E402
 from report_parts import (  # noqa: E402
     CSS,
     before_after,
@@ -56,6 +57,45 @@ def comparisons_html(p, n, order, info):
         return ""
     return ("<p class='small sub'>A separate, labelled pass made after each verdict was saved; it never changes a score."
             "</p><div class='two'>%s</div>" % "".join(out))
+
+
+def critiques_html(p, rs, order, info):
+    """How far each reviewer's critique held up when a separate checker re-tested it, this round and before."""
+    by_round = [(r["n"], critique.load_meta(p, r["n"])) for r in rs]
+    if not any(m for _, m in by_round):
+        return ""
+    n, cur = by_round[-1]
+    pct = lambda x: "not given" if not isinstance(x, (int, float)) else "%d%%" % round(100 * x)   # noqa: E731
+    rows = []
+    for who in order + sorted(w for w in cur if w not in order):
+        m = cur.get(who)
+        name = info.get(who, {}).get("name", who)
+        colour = info.get(who, {}).get("colour", "#888")
+        earlier = ", ".join("r%d %s" % (k, ms[who].get("critique_quality")) for k, ms in by_round[:-1] if who in ms)
+        if not m:
+            if who in info:
+                rows.append("<tr><th scope='row'><i class='dot' style='background:%s'></i>%s</th><td colspan='6' class='small sub'>"
+                            "Not checked this round%s.</td></tr>" % (colour, esc(name), "; earlier: " + esc(earlier) if earlier else ""))
+            continue
+        s = critique.summary(m)
+        rows.append("<tr><th scope='row'><i class='dot' style='background:%s'></i>%s</th>"
+                    "<td data-label='Critique quality'><b>%s</b>/10%s</td><td data-label='Accuracy'>%s</td>"
+                    "<td data-label='Findings held'>%d of %d</td><td data-label='Serious held'>%s</td>"
+                    "<td data-label='Severity right'>%s</td><td class='small' data-label='Checker'>%s%s</td></tr>" % (
+                        colour, esc(name), esc(s["critique_quality"]),
+                        "<br><span class='small sub'>earlier: %s</span>" % esc(earlier) if earlier else "",
+                        pct(s["accuracy"]), s["held"], s["checked"],
+                        "%d of %d" % (s["serious_held"], s["serious"]) if s["serious"] else "none",
+                        pct(s["severity_ok"]), esc(s["summary"]),
+                        " <span class='sub'>(missed %d)</span>" % s["missed"] if s["missed"] else ""))
+    who = critique.checker(p)["name"]
+    return ("<h2>Critique quality</h2><div class='card'><p class='small sub'>Round %d. %s, in fresh context, re-tested each "
+            "reviewer's blocker, high and medium findings in the live product: held means confirmed or partly true. "
+            "Trust a reviewer's fixes in proportion; act first on what the check confirmed and on what it found the "
+            "reviewer missed. The checker is an AI model too and can be wrong.</p><table><thead><tr><th scope='col'>Reviewer</th>"
+            "<th scope='col'>Critique quality</th><th scope='col'>Accuracy</th><th scope='col'>Findings held</th>"
+            "<th scope='col'>Serious (blocker, high) held</th><th scope='col'>Severity right</th><th scope='col'>Checker's summary</th>"
+            "</tr></thead><tbody>%s</tbody></table></div>" % (n, esc(who), "".join(rows)))
 
 
 def parse_views_json(raw):
@@ -192,7 +232,7 @@ def build(p):
             "%s<h2>Score trend</h2><div class='card'>%s%s</div>"
             "<h2>Each journey, this round against the last</h2><div class='card'>%s</div>%s"
             "<h2>What changed each round</h2><div class='card'>%s</div>%s"
-            "%s<h2>What the reviewers propose next</h2>%s%s"
+            "%s%s<h2>What the reviewers propose next</h2>%s%s"
             "<h2>The criteria each round used</h2><div class='card'><p class='small sub'>The floor, plus each stage "
             "added as the product matured (highlighted).</p>%s</div>%s"
             "<h2>Before and after, screen by screen</h2>%s"
@@ -200,7 +240,8 @@ def build(p):
         esc(title), CSS, esc(p.name), (". " + esc(note)) if note else "", esc(names), kpis, banner,
         do_next(p, cur, order, info), trend_svg(rs, order, info), trend_joined_note(order, info),
         journey_table(p, rs, order, info), measured(p, rs), what_changed_rounds(rs, info),
-        comparisons_html(p, cur["n"], order, info), noise_card(p, rs, order, info), proposals(p, cur, order, info),
+        comparisons_html(p, cur["n"], order, info), noise_card(p, rs, order, info), critiques_html(p, rs, order, info),
+        proposals(p, cur, order, info),
         fixes_detail(cur, order, info), criteria_table(rs), people, before_after(p, rs))
     path = os.path.join(p.dir, "report.html")
     with open(path, "w", encoding="utf-8") as fh:

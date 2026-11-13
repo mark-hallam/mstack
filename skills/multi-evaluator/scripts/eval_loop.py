@@ -19,13 +19,17 @@ current folder), and every command that reports state can print JSON with --json
   verdict      check a reviewer's JSON verdict and save it to the round (for agent reviewers);
                --compare saves the comparison pass apart from the score of record
   validate     check a verdict file against the reply format, without saving it
+  meta-brief   write the critique-check brief for each reviewer with a saved verdict
+               (rounds/r<N>/briefs/<reviewer>-meta.md): a separate checker re-tests its findings
+  meta         check a critique check (rounds/r<N>/meta/<reviewer>.json) and save it
   report       build report.html: score trend, each journey, proposals, before and after, filmstrips
   choose       record the person's answer when a usage limit leaves too few reviewers:
                --choice wait, backup or fewer
   notify       send a test notification through the configured notify command
 
 Typical round:  start-round, edit changes.md, capture, brief, review (and your own agent's reviewer,
-then verdict), report. Repeat until status says "ready for people".
+then verdict), meta-brief and the checker's meta, report. Repeat until status says "ready for people".
+verdict, meta and report also record the round on the private evaluator scoreboard (evalboard.py).
 """
 import argparse
 import json
@@ -62,6 +66,7 @@ from eval_common import (  # noqa: E402
 from serving import cmd_serve, find_chrome, shared_chrome  # noqa: E402
 from target import Target, drive  # noqa: E402
 from verdicts import cmd_validate, cmd_verdict, run_reviewer  # noqa: E402
+from critique import auto_record, cmd_meta, cmd_meta_brief  # noqa: E402
 
 
 # ---------------------------------------------------------------- config and rounds
@@ -500,7 +505,8 @@ def cmd_report(args):
     p = Project(args.dir)
     path, summary = report.build(p)
     sent = notify(p, summary) if not args.no_notify else False
-    say(args, {"report": path, "summary": summary, "notified": sent, "next": next_step(p)})
+    say(args, {"report": path, "summary": summary, "notified": sent, "scoreboard": auto_record(p, p.latest()),
+               "next": next_step(p)})
 
 
 def cmd_notify(args):
@@ -553,6 +559,12 @@ def main(argv=None):
     s.add_argument("file", nargs="?", default="-", help="the reply (a file, or - for standard input)")
     s = add("validate", cmd_validate, round_=False)
     s.add_argument("file", nargs="?", default="-")
+    s = add("meta-brief", cmd_meta_brief)
+    s.add_argument("--reviewer", help="only this reviewer (default: every reviewer with a saved verdict)")
+    s = add("meta", cmd_meta)
+    s.add_argument("--reviewer", required=True)
+    s.add_argument("file", nargs="?", default=None,
+                   help="the checker's reply (a file, or - for standard input; default: rounds/r<N>/meta/<reviewer>.json)")
     s = add("report", cmd_report, round_=False)
     s.add_argument("--no-notify", action="store_true")
     s = add("notify", cmd_notify, round_=False)

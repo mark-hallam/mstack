@@ -224,7 +224,11 @@ def cmd_verdict(args):
     if probs:
         say(args, {"ok": False, "problems": probs}, "Not saved:\n- " + "\n- ".join(probs))
         sys.exit(1)
-    say(args, {"ok": True, "saved": save_verdict(p, n, args.reviewer, v), "next": next_step(p)})
+    from critique import auto_record
+    saved = save_verdict(p, n, args.reviewer, v)
+    say(args, {"ok": True, "saved": saved, "scoreboard": auto_record(p, n),
+               "critique_check": "meta-brief --round %d --reviewer %s, for a separate checker" % (n, args.reviewer),
+               "next": next_step(p)})
 
 
 def cmd_validate(args):

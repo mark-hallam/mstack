@@ -178,6 +178,22 @@ what happens, so it is a tie breaker and a check on same-maker taste: it never c
 people", and it can never be the only reviewer (`brief` refuses). Use the chat's private or temporary mode
 and close the tab after.
 
+## `checker` and `scoreboard`: critique checks and the evaluator scoreboard
+
+`checker` names the model that re-tests each reviewer's findings (`meta-brief`). Default:
+
+```json
+"checker": {"name": "Claude Opus 5.5", "maker": "Anthropic", "model": "claude-opus-5-5"}
+```
+
+A plain name (`"checker": "Some Model"`) works too. Run it in fresh context, never as the agent that wrote the
+review it checks. Its check is saved to `rounds/r<N>/meta/<reviewer>.json` and the report shows it under
+"Critique quality".
+
+`verdict`, `meta` and `report` record the round on the evaluator scoreboard, a private ledger in
+`$MSTACK_HOME/evals/` (default `~/.mstack/evals/`), never in a repository. Set `"scoreboard": false` to leave
+a project off it.
+
 ## `notify`
 
 Optional. A command run when a report is built, with `{message}` filled in, so a phone can buzz when a
@@ -193,6 +209,7 @@ round needs the person. For example, with the free ntfy app:
 
 | Variable | What it does |
 |---|---|
+| `MSTACK_HOME` | The private mStack home (default `~/.mstack`); the evaluator scoreboard lives in its `evals/` folder, which must be outside every git repository. |
 | `MSTACK_CDP_PORT` | The driver uses an already running Chrome on this debugging port instead of starting its own. |
 | `MSTACK_CHROME` | The Chrome or Chromium program, if it is not in a usual place. |
 | `MSTACK_CHROME_ARGS` | Extra Chrome flags, for example `--no-sandbox` in some Linux containers. |
