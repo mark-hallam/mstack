@@ -22,7 +22,8 @@ CONTROL = "control"
 
 def round_reviewers(p, n):
     """Reviewer ids that round n had scoring briefs for, or today's config when briefs are not written yet."""
-    config_order = [r["id"] for r in p.enabled_reviewers()]
+    import availability
+    config_order = [r["id"] for r in availability.roster(p, n)]
     config_ids = set(config_order)
     briefs_dir = p.rdir(n, "briefs")
     if not os.path.isdir(briefs_dir):
@@ -68,13 +69,20 @@ def num(x):
 
 def round_check(p, n):
     """One round against the stopping rule: {"ready": bool, "reasons": [...], "disagreements": {...}, ...}."""
+    import availability
     v = p.verdicts(n)
-    want = counting_reviewers(p, n)
+    plan = availability.plan(p, n)
+    want = [w for w in counting_reviewers(p, n) if w not in plan["skip"]]
     jids = journey_ids(p)
     reasons, disagreements, high, blockers = [], {}, [], []
     missing = [w for w in want if w not in v]
     if missing:
         reasons.append("no verdict yet from %s" % ", ".join(missing))
+    if plan["paused"] and not plan["enough"]:
+        reasons.append("short of reviewers: %s paused at a usage limit, and fewer than two counting reviewers from "
+                       "different makers are left" % ", ".join(x["reviewer"] for x in plan["paused"]))
+    if not plan["counts_toward_ready"]:
+        reasons.append("the person chose to run this round with fewer reviewers, so it does not count toward ready for people")
     for jid in jids:
         got = dict((w, scores_of(v[w]).get(jid)) for w in want if w in v)
         vals = [s for s in got.values() if num(s)]
@@ -97,7 +105,7 @@ def round_check(p, n):
         reasons.append("%d high-severity fix%s still open" % (len(high), "" if len(high) == 1 else "es"))
     unanimous = bool(want) and not missing and all(scores_of(v[w]).get(j) == 10 for w in want for j in jids)
     return {"round": n, "ready": not reasons, "reasons": reasons, "disagreements": disagreements, "high_open": high, "blockers_open": blockers,
-            "unanimous_ten": unanimous}
+            "unanimous_ten": unanimous, "short": plan["short"]}
 
 
 def ready_for_people(p):
@@ -160,6 +168,8 @@ def round_state(p, n):
     scores = dict((who, scores_of(d)) for who, d in v.items())
     briefs = p.rdir(n, "briefs")
     check = round_check(p, n)
+    import availability
+    check_plan = availability.plan(p, n)
     out = {
         "round": n,
         "shots": len(p.shots(n)),
@@ -167,7 +177,7 @@ def round_state(p, n):
         "verdicts": sorted(v),
         "reviewers": want,
         "joined": joined,
-        "missing_verdicts": [w for w in want if w not in v],
+        "missing_verdicts": [w for w in want if w not in v and w not in check_plan["skip"]],
         "overall": dict((who, d.get("overall")) for who, d in v.items()),
         "scores": scores,
         "ready": check["ready"],
@@ -176,6 +186,8 @@ def round_state(p, n):
         "unanimous_ten": check["unanimous_ten"],
         "all_ten": check["unanimous_ten"],
     }
+    if check_plan["paused"]:
+        out["paused"] = check_plan
     if dropped:
         out["dropped_reviewers"] = dropped
         out["note"] = "briefs on disk for %s, but those ids are not in the config now" % ", ".join(dropped)
@@ -193,9 +205,18 @@ def next_step(p):
         return "capture --round %d" % n
     if len(st["briefs"]) < len(p.enabled_reviewers()):
         return "brief --round %d" % n
+    pl = st.get("paused")
+    if pl and pl["choice_needed"]:
+        return ("ask the person (and ping their phone): %s Then record the answer: %s" % (pl["question"], pl["how_to_answer"]))
+    waiting_on = set(x["reviewer"] for x in pl["paused"]) if pl and pl["choice"] == "wait" else set()
+    if waiting_on and set(st["missing_verdicts"]) <= waiting_on:
+        return ("the person chose to wait: %s. After the reset, run: review --round %d --only %s" % (
+            pl["label"], n, ",".join(x["reviewer"] for x in pl["paused"])))
     if st["missing_verdicts"]:
         parts = []
         for rid in st["missing_verdicts"]:
+            if rid in waiting_on:
+                continue                           # paused at its usage limit; the person chose to wait for it
             r = p.reviewer(rid) or {}
             if r.get("kind") == "command":
                 parts.append("review --round %d --only %s" % (n, rid))

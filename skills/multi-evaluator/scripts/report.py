@@ -12,6 +12,7 @@ import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import availability  # noqa: E402
 import readiness  # noqa: E402
 from report_audit import measured  # noqa: E402
 import regrade  # noqa: E402
@@ -204,6 +205,12 @@ def build(p):
                   "round so it holds for %d rounds in a row.</div>" % readiness.READY_ROUNDS)
     elif latest.get("reasons"):
         banner = "<div class='banner warn'><b>Not ready for people yet:</b> %s.</div>" % esc("; ".join(latest["reasons"]))
+    short = availability.plan(p, cur["n"])
+    if short["paused"]:
+        banner += ("<div class='banner warn'><b>%s</b> %s.</div>" % (
+            "Run with fewer reviewers, by choice: this round does not count toward ready for people." if short["choice"] == "fewer"
+            else "Short one reviewer this round." if len(short["paused"]) == 1 else "Short of reviewers this round.",
+            esc(short["label"])))
     if latest.get("unanimous_ten"):
         banner += ("<div class='banner warn'><b>Every reviewer gave every journey 10.</b> Treat that as a flag to double "
                    "check the brief and the journeys, not as a finish line: a perfect score from a model judge is more "
