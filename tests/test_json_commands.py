@@ -15,6 +15,7 @@ import sys
 import tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+os.environ["MSTACK_HOME"] = __import__("tempfile").mkdtemp(prefix="mstack-home-")   # the evaluator scoreboard writes here, never to the real home
 SK = os.path.join(ROOT, "skills")
 OUTCOME = os.path.join(SK, "outcome-first", "scripts", "outcome.py")
 AWAY = os.path.join(SK, "away-mode", "scripts", "away.py")

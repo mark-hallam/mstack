@@ -29,7 +29,7 @@ def round_reviewers(p, n):
         return list(config_order)
     found = []
     for f in os.listdir(briefs_dir):
-        if f.endswith(".md") and not f.endswith("-compare.md"):
+        if f.endswith(".md") and not f.endswith(("-compare.md", "-meta.md")):
             rid = f[:-3]
             if rid in config_ids:
                 found.append(rid)
@@ -44,7 +44,7 @@ def brief_reviewers_dropped(p, n):
     briefs_dir = p.rdir(n, "briefs")
     if not os.path.isdir(briefs_dir):
         return []
-    return sorted(f[:-3] for f in os.listdir(briefs_dir) if f.endswith(".md") and not f.endswith("-compare.md")
+    return sorted(f[:-3] for f in os.listdir(briefs_dir) if f.endswith(".md") and not f.endswith(("-compare.md", "-meta.md"))
                   and f[:-3] not in config_ids)
 
 
