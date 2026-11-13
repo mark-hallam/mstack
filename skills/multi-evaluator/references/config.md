@@ -101,6 +101,33 @@ a one point move looks like progress.
   standard output is read), `{brief}`, `{round}`, `{dir}`, `{home}` (the person's home folder).
 - `shared_chrome: true`: for sandboxed reviewers that cannot start Chrome. `review` starts a headless
   Chrome on port 9555 (change with `--cdp-port`) and the brief tells the reviewer to use it.
+- `usage`: optional, `"claude"`, `"codex"` or `"none"`: whose plan this reviewer spends, so `preflight` can
+  read how much is left and when it resets. A command starting with `claude` or `codex` is recognised by
+  itself; set it for an agent reviewer (the starter's Claude reviewer has `"usage": "claude"`) or a
+  command that runs one of those plans through another program. Anything else shows usage "unknown".
+- `signin_check`: optional command whose exit code 0 means signed in (as a list, or a string run by the
+  shell). Without it, `preflight` uses `claude auth status`, `codex login status` or `cursor-agent status`
+  when the command starts with one of those, and says "unknown" otherwise. Only yes or no is kept, never
+  the check's output (it may name the account).
+- `backup`: optional, the id of another reviewer in this file (often one with `"enabled": false`) that may
+  stand in when this one hits its usage limit and too few reviewers are left. It is used only when the
+  person chooses it (`choose --choice backup`); it then counts as itself, under its own maker, so a
+  backup from the same maker keeps the different-makers rule honest.
+
+### Usage limits during a round
+
+`preflight` (run by `brief` and `review` too, or on its own; `--json` for agents) lists each enabled
+reviewer's state: `ready`, `by-agent` (your own agent runs it), `paused` (a usage window at 99% or more
+that resets later), `missing` (program not found) or `signed out`. A reviewer at 90% or more runs, with a
+warning that it may stop partway.
+
+A reviewer that hits its limit during `review` is recorded in `rounds/r<N>/availability/<id>.paused.json`
+with the reset time when it can be read. If at least two counting reviewers from different makers remain
+(a reviewer without `maker` counts as its own maker), the round continues short one reviewer. Otherwise
+`review` exits with code 3, runs `notify`, and `status --json` carries `availability` with
+`choice_needed`, `question`, `choices` (`wait`, `backup`, `fewer`) and `how_to_answer`. The person's answer
+is saved by `choose --choice <wait|backup|fewer>` in `rounds/r<N>/availability/choice.json`. A round run
+with `fewer` never counts toward ready for people. A later verdict from the paused reviewer clears its pause.
 
 ### Cursor's command line agent (`kind: "command"`)
 

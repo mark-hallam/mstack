@@ -140,8 +140,9 @@ def run_reviewer(p, n, r, cdp_port, results):
     work = p.rdir(n, "work", rid)
     os.makedirs(work, exist_ok=True)
     reply = os.path.join(work, "reply.txt")
-    if os.path.exists(reply):
-        os.remove(reply)
+    for old in ("reply.txt", "raw-reply.txt", "stderr.txt"):       # never read a reply left by an earlier attempt
+        if os.path.exists(os.path.join(work, old)):
+            os.remove(os.path.join(work, old))
     brief = p.rdir(n, "briefs", rid + ".md")
     with open(brief, encoding="utf-8") as fh:
         text = fh.read()
@@ -164,7 +165,7 @@ def run_reviewer(p, n, r, cdp_port, results):
                               timeout=60 * float(r.get("timeout_minutes", 60)))
         out = proc.stdout
     except subprocess.TimeoutExpired:
-        results[rid] = {"ok": False, "problem": "timed out"}
+        results[rid] = {"ok": False, "problem": "timed out", "timed_out": True}
         return
     except FileNotFoundError as e:
         results[rid] = {"ok": False, "problem": "could not run %s: %s" % (cmd[0] if isinstance(cmd, list) else cmd, e)}
@@ -175,6 +176,8 @@ def run_reviewer(p, n, r, cdp_port, results):
             raw = fh.read() or out
     with open(os.path.join(work, "raw-reply.txt"), "w", encoding="utf-8") as fh:
         fh.write(raw)
+    with open(os.path.join(work, "stderr.txt"), "w", encoding="utf-8") as fh:
+        fh.write(proc.stderr or "")
     v = extract_json(raw)
     probs = check_verdict(p, v, rid, n)
     if probs:

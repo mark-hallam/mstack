@@ -8,6 +8,8 @@ current folder), and every command that reports state can print JSON with --json
 
   init         write a starter mstack-eval.json (and the review folder) to fill in
   status       where the loop is and what to do next (--json for agents)
+  preflight    which reviewers can run: program found, signed in, usage left and its reset time
+               (unknown when it cannot be read; --probe spends one tiny Claude call to read it)
   start-round  open the next round: rounds/r<N>/ with changes.md and this round's criteria
   capture      capture the fixed screens for the round, the same way every round
   brief        write each reviewer's blind scoring brief (rounds/r<N>/briefs/<reviewer>.md) and, from
@@ -18,6 +20,8 @@ current folder), and every command that reports state can print JSON with --json
                --compare saves the comparison pass apart from the score of record
   validate     check a verdict file against the reply format, without saving it
   report       build report.html: score trend, each journey, proposals, before and after, filmstrips
+  choose       record the person's answer when a usage limit leaves too few reviewers:
+               --choice wait, backup or fewer
   notify       send a test notification through the configured notify command
 
 Typical round:  start-round, edit changes.md, capture, brief, review (and your own agent's reviewer,
@@ -43,6 +47,7 @@ import locks  # noqa: E402
 import readiness  # noqa: E402  (the stopping rule, the noise check and "do these next")
 import briefs  # noqa: E402  (the scoring brief, blind, and the separate comparison brief)
 import audit  # noqa: E402  (the measured audit that capture saves for every view)
+import availability  # noqa: E402  (preflight, usage limits, paused reviewers and the person's choice)
 from eval_common import (  # noqa: E402
     CONFIG_NAME,
     SKILL,
@@ -212,11 +217,14 @@ def cmd_status(args):
             "journeys": [dict(id=j["id"], name=j["name"]) for j in p.journeys()],
             "criteria": [c["name"] for c in p.criteria(n)],
             "rounds": rounds,
+            "availability": availability.plan(p, n) if n else None,
             "next": next_step(p)}
     if args.json:
         print(json.dumps(data, indent=2))
         return
     print("%s: round %s" % (p.name, n if n else "none yet"))
+    if data["availability"] and data["availability"]["paused"]:
+        print("  " + data["availability"]["label"])
     for r in data["rounds"]:
         print("  round %d: %d screens, verdicts from %s%s" % (
             r["round"], r["shots"], ", ".join(r["verdicts"]) or "nobody yet",
@@ -315,6 +323,7 @@ def cmd_brief(args):
         raise SystemExit("Every reviewer is a web chat. A chat reviewer only sees screenshots, so it is a tie breaker: "
                          "add at least one reviewer of kind agent or command that drives the real product.")
     briefs.check_personas(p)
+    pre = availability.preflight(p)
     os.makedirs(p.rdir(n, "briefs"), exist_ok=True)
     prev = [k for k in p.round_numbers() if k < n and p.shots(k)]
     written = []
@@ -332,19 +341,29 @@ def cmd_brief(args):
             written.append(cpath)
     note = ("The scoring briefs are blind (no earlier rounds). Give a -compare brief to a reviewer only after its "
             "verdict is saved, and save that reply with: verdict --compare" if prev else "")
-    say(args, {"round": n, "briefs": written, "note": note}, "\n".join(written) + ("\n" + note if note else ""))
+    say(args, {"round": n, "briefs": written, "note": note, "preflight": pre},
+        "\n".join(written) + ("\n" + note if note else "") + "\npreflight: " + pre["summary"])
 
 
 def cmd_review(args):
     p = Project(args.dir)
     n = p.need_round(args.round)
     only = set(filter(None, (args.only or "").split(",")))
-    chosen = [r for r in p.enabled_reviewers() if (not only or r["id"] in only)]
+    chosen = [r for r in availability.roster(p, n) if (not only or r["id"] in only)]
     for r in chosen:
         if not os.path.exists(p.rdir(n, "briefs", r["id"] + ".md")):
             raise SystemExit("No brief for %s yet. Run: brief --round %d" % (r["id"], n))
-    runnable = [r for r in chosen if r.get("kind") == "command"]
+    commands = [r for r in chosen if r.get("kind") == "command"]
     agents = [r for r in chosen if r.get("kind") != "command"]
+    pre = availability.preflight(p, reviewers=commands)
+    results = {}
+    for c in pre["reviewers"]:
+        if c["state"] == "paused":
+            rec = availability.record_pause(p, n, c["id"], dict(c["usage"], source="preflight", evidence=c["why"]))
+            results[c["id"]] = {"ok": False, "paused": True, "problem": rec["label"], "resets": rec["resets"]}
+        elif c["state"] == "signed out":
+            results[c["id"]] = {"ok": False, "problem": c["why"]}
+    runnable = [r for r in commands if r["id"] not in results]
     chrome = work = None
     needs_chrome = any(r.get("shared_chrome") for r in runnable)
     wait_sec = 60 * max(float(r.get("timeout_minutes", 60)) for r in runnable) if runnable else 60
@@ -357,7 +376,6 @@ def cmd_review(args):
     try:
         if needs_chrome:
             chrome, work = shared_chrome(args.cdp_port)
-        results = {}
         try:
             threads = [threading.Thread(target=run_reviewer, args=(p, n, r, args.cdp_port if r.get("shared_chrome") else None,
                                                                    results)) for r in runnable]
@@ -372,6 +390,16 @@ def cmd_review(args):
     finally:
         if needs_chrome and got_chrome:
             locks.release("chrome")
+    for r in runnable:
+        res = results.get(r["id"]) or {}
+        if res.get("ok") is False:
+            work_dir = p.rdir(n, "work", r["id"])
+            hit = availability.classify_failure(r, _read(os.path.join(work_dir, "raw-reply.txt")),
+                                                _read(os.path.join(work_dir, "stderr.txt")), res.get("timed_out"))
+            if hit:
+                rec = availability.record_pause(p, n, r["id"], hit)
+                results[r["id"]] = {"ok": False, "paused": True, "problem": rec["label"], "resets": rec["resets"],
+                                    "was": res.get("problem")}
     for r in agents:
         if r.get("kind") == "chat":
             results[r["id"]] = {"ok": None, "waiting": chat_instructions(p, n, r)}
@@ -379,18 +407,65 @@ def cmd_review(args):
             results[r["id"]] = {"ok": None, "waiting": "your agent runs this reviewer: give it %s in fresh context, then "
                                                        "run verdict --round %d --reviewer %s <reply>" % (
                                                            p.rdir(n, "briefs", r["id"] + ".md"), n, r["id"])}
+    plan = availability.plan(p, n)
+    if plan["choice_needed"]:
+        plan["notified"] = notify(p, "mStack review round %d needs your choice: %s" % (n, plan["question"]))
     if args.json:
-        print(json.dumps({"round": n, "results": results}, indent=2))
+        print(json.dumps({"round": n, "results": results, "preflight": pre, "availability": plan}, indent=2))
     else:
         for rid, res in results.items():
             if res.get("ok"):
                 print("%s: overall %s, saved %s" % (rid, res["overall"], res["verdict"]))
             elif res.get("ok") is None:
                 print("%s: %s" % (rid, res["waiting"]))
+            elif res.get("paused"):
+                print("%s: %s" % (rid, res["problem"]))
             else:
                 print("%s: FAILED, %s" % (rid, res["problem"]))
-    if any(res.get("ok") is False for res in results.values()):
+        if plan["choice_needed"]:
+            print("\nThe round stops here. Ask the person: %s\n  wait:   %s\n  backup: %s\n  fewer:  %s\nThen: %s" % (
+                plan["question"], *[c["detail"] for c in plan["choices"]], plan["how_to_answer"]))
+        elif plan["paused"]:
+            print("\nShort one reviewer: the round goes on with %s (%s)." % (", ".join(plan["counting_left"]), plan["label"]))
+    if plan["choice_needed"]:
+        sys.exit(3)
+    if any(res.get("ok") is False and not res.get("paused") for res in results.values()):
         sys.exit(1)
+
+
+def _read(path):
+    try:
+        with open(path, encoding="utf-8", errors="replace") as fh:
+            return fh.read()
+    except OSError:
+        return ""
+
+
+def cmd_preflight(args):
+    p = Project(args.dir)
+    data = availability.preflight(p, probe=args.probe)
+    say(args, data, availability.preflight_text(data))
+    sys.exit(0 if not data["will_not_run"] else 1)
+
+
+def cmd_choose(args):
+    p = Project(args.dir)
+    n = p.need_round(args.round)
+    rec = availability.save_choice(p, n, args.choice)
+    written = []
+    if args.choice == "backup":
+        os.makedirs(p.rdir(n, "briefs"), exist_ok=True)
+        base = len(p.enabled_reviewers())
+        for i, b in enumerate(sorted(set(rec["standins"].values()))):
+            r = p.reviewer(b)
+            os.makedirs(p.rdir(n, "work", b), exist_ok=True)
+            path = p.rdir(n, "briefs", b + ".md")
+            with open(path, "w", encoding="utf-8") as fh:
+                fh.write(briefs.scoring_brief(p, n, b, base + i, cdp_port=args.cdp_port if r.get("shared_chrome") else None))
+            written.append(path)
+    say(args, {"ok": True, "round": n, "choice": rec, "briefs": written, "availability": availability.plan(p, n),
+               "next": next_step(p)},
+        "recorded: %s%s\nnext: %s" % (args.choice, ("\nbriefs: " + ", ".join(written)) if written else "", next_step(p)))
 
 
 def chat_instructions(p, n, r):
@@ -463,6 +538,12 @@ def main(argv=None):
     s.add_argument("--cdp-port", type=int, default=9555, help="the shared Chrome port for sandboxed reviewers")
     s = add("serve", cmd_serve, round_=False)
     s.add_argument("--port", type=int, help="the port to serve on (default: any free port)")
+    s = add("preflight", cmd_preflight, round_=False)
+    s.add_argument("--probe", action="store_true", help="allow one tiny Claude call to read its usage windows")
+    s = add("choose", cmd_choose)
+    s.add_argument("--choice", required=True, choices=availability.CHOICES,
+                   help="wait for the reset, use the configured backup, or run with fewer reviewers (not counting)")
+    s.add_argument("--cdp-port", type=int, default=9555)
     s = add("review", cmd_review)
     s.add_argument("--only", help="comma separated reviewer ids")
     s.add_argument("--cdp-port", type=int, default=9555)

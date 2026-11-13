@@ -55,7 +55,7 @@
     ]}
   ],
   "reviewers": [
-    {"id": "claude", "name": "Claude", "maker": "Anthropic", "colour": "#C15F3C", "kind": "agent"},
+    {"id": "claude", "name": "Claude", "maker": "Anthropic", "colour": "#C15F3C", "kind": "agent", "usage": "claude"},
     {"id": "codex", "name": "Codex", "maker": "OpenAI", "colour": "#1f6feb", "kind": "command", "shared_chrome": true, "timeout_minutes": 60,
      "command": ["codex", "exec", "-s", "workspace-write", "-c", "sandbox_workspace_write.network_access=true", "--skip-git-repo-check", "-C", "{work}", "-o", "{reply}", "-"]},
     {"id": "cursor", "name": "Cursor agent", "model": "", "colour": "#555", "enabled": false,

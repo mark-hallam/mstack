@@ -57,9 +57,31 @@ Before any review, agree with the person what a real person must be able to do, 
 LOOP start-round --dir design-review          # opens rounds/r<N>/, snapshots this round's criteria
                                               # write rounds/r<N>/changes.md: what changed, one bullet each
 LOOP capture --dir design-review              # the same screens, captured the same way, every round
+LOOP preflight --dir design-review            # which reviewers can run: program found, signed in, usage left and when it resets
 LOOP brief --dir design-review                # blind scoring briefs in rounds/r<N>/briefs/, plus -compare briefs from round 2
 LOOP review --dir design-review               # runs command line reviewers (Codex, Cursor, or any agent with a command line) in parallel; run it in the background
 ```
+
+**Check who can run first.** `preflight` (also run by `brief` and `review`) reports, for every enabled
+reviewer, whether its program is found, whether it is signed in, and how much of its plan's usage is left
+with the reset time. Usage comes from real readings (Claude Code's own limit events, Codex's session log,
+through the crew skill); anything it cannot read says "unknown", never a guess. `--probe` allows one tiny
+Claude call to read Claude's windows. Tell the person plainly which reviewers will not run and why.
+
+**When a reviewer hits its usage limit.** `review` spots a limit in the reply or errors (or a failed run
+while the reviewer's usage reading is at or near 100%, or a reviewer already full before the round) and
+records it as "paused: usage limit, resets at <time>", not as a broken reply. Then the readiness rule
+decides:
+
+- At least two counting reviewers from different makers are left: the round goes on without the paused
+  one, and status and the report mark it short one reviewer.
+- Fewer are left: `review` exits with code 3, sends the config's `notify` message, and `status --json`
+  shows `availability.choice_needed`, the `question` and three `choices`. **Ask the person** (and ping their
+  phone; in Claude Code, PushNotification) whether to **wait** until the reset, use the reviewer's
+  configured **backup**, or run the round with **fewer** reviewers, labelled as not counting toward ready
+  for people. Record the answer with `LOOP choose --dir design-review --choice wait|backup|fewer`. Never
+  wait hours on your own and never pick for them. With `backup`, `choose` writes the backup's brief; then
+  run `review --only <backup id>`. With `wait`, `status` names the reset time and the command to run after it.
 
 Capture also measures every view with a read only audit (screens long, repeated phrases, text failing contrast,
 images without alt text, sideways scroll, endless animation with and without reduce motion, page weight, heading
